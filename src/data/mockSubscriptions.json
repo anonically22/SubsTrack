@@ -1,0 +1,62 @@
+[
+  {
+    "id": "1",
+    "name": "Disney+ Hotstar",
+    "category": "OTT",
+    "monthlyCost": 149,
+    "billingCycle": "Monthly",
+    "renewalDate": "2025-02-10",
+    "color": "#1f80e0",
+    "notes": "Super Plan"
+  },
+  {
+    "id": "2",
+    "name": "Netflix India",
+    "category": "OTT",
+    "monthlyCost": 649,
+    "billingCycle": "Monthly",
+    "renewalDate": "2025-02-15",
+    "color": "#E50914",
+    "notes": "Premium 4K"
+  },
+  {
+    "id": "3",
+    "name": "Jio Fiber",
+    "category": "Telecom",
+    "monthlyCost": 999,
+    "billingCycle": "Monthly",
+    "renewalDate": "2025-02-01",
+    "color": "#0f3cc9",
+    "notes": "150 Mbps Plan"
+  },
+  {
+    "id": "4",
+    "name": "Spotify Premium",
+    "category": "Music",
+    "monthlyCost": 119,
+    "billingCycle": "Monthly",
+    "renewalDate": "2025-02-20",
+    "color": "#1DB954",
+    "notes": "Individual"
+  },
+  {
+    "id": "5",
+    "name": "Swiggy One",
+    "category": "Food",
+    "monthlyCost": 299,
+    "billingCycle": "Quarterly",
+    "renewalDate": "2025-04-01",
+    "color": "#FC8019",
+    "notes": "Free delivery"
+  },
+  {
+    "id": "6",
+    "name": "Amazon Prime",
+    "category": "OTT",
+    "monthlyCost": 1499,
+    "billingCycle": "Yearly",
+    "renewalDate": "2025-11-15",
+    "color": "#00A8E1",
+    "notes": "Shopping + Video"
+  }
+]
