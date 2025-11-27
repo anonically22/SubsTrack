@@ -10,6 +10,11 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import LandingPage from './pages/LandingPage';
+import Wallet from './pages/Wallet';
+import Rewards from './pages/Rewards';
+import AlertsPage from './pages/AlertsPage';
+import Discover from './pages/Discover';
+import Reports from './pages/Reports';
 
 // Component to conditionally wrap Layout
 const AppRoutes = () => {
@@ -28,6 +33,12 @@ const AppRoutes = () => {
             <Route path="/edit/:id" element={<AddEditSubscription />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Profile />} /> {/* Mapping Settings to Profile for now */}
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/rewards" element={<Rewards />} />
+            <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/discover" element={<Discover />} />
+            <Route path="/reports" element={<Reports />} />
           </Routes>
         </Layout>
       ) : (
