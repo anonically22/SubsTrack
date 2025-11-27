@@ -1,17 +1,24 @@
 import React from 'react';
-import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, CreditCard, DollarSign, PieChart } from 'lucide-react';
+import { Wallet as WalletIcon, Download, CreditCard, DollarSign, TrendingUp } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 const Wallet = () => {
     return (
         <div className="flex flex-col gap-8">
-            <header>
-                <h1 className="text-3xl font-extrabold mb-1">Wallet</h1>
-                <p className="text-muted">Manage your payment methods and track spending.</p>
-            </header>
+            <PageHeader
+                title="Wallet"
+                description="Manage your payment methods and track spending."
+                action={
+                    <button className="btn btn-outline gap-2">
+                        <Download size={18} />
+                        <span>Export</span>
+                    </button>
+                }
+            />
 
             {/* Balance Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="card bg-gradient-to-br from-gray-900 to-black border-none text-white relative overflow-hidden p-8 h-64 flex flex-col justify-between">
+                <div className="card bg-gradient-to-br from-gray-900 to-black border-none text-white relative overflow-hidden p-8 flex flex-col justify-between" style={{ minHeight: '240px' }}>
                     <div className="absolute top-0 right-0 p-8 opacity-10">
                         <WalletIcon size={120} />
                     </div>
@@ -30,7 +37,7 @@ const Wallet = () => {
                     </div>
                 </div>
 
-                <div className="card p-8 h-64 flex flex-col justify-between">
+                <div className="card p-8 flex flex-col justify-between" style={{ minHeight: '240px' }}>
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="font-bold text-lg">Monthly Savings</h3>
                         <div className="p-2 bg-secondary/10 rounded-lg text-secondary">
@@ -61,7 +68,7 @@ const Wallet = () => {
                         { name: 'Salary Credit', date: 'Oct 28, 9:00 AM', amount: 45000, icon: '₹', color: '#10B981', type: 'credit' },
                         { name: 'Swiggy One', date: 'Oct 25, 8:20 PM', amount: -75, icon: 'S', color: '#FC8019' },
                     ].map((tx, i) => (
-                        <div key={i} className="flex items-center justify-between p-3 hover:bg-input rounded-xl transition-colors cursor-pointer">
+                        <div key={i} className="flex items-center justify-between p-4 hover:bg-input rounded-xl transition-colors cursor-pointer">
                             <div className="flex items-center gap-4">
                                 <div style={{
                                     width: '48px', height: '48px', borderRadius: '12px',

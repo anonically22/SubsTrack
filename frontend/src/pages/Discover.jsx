@@ -1,29 +1,29 @@
 import React from 'react';
 import { Search, Star, TrendingUp, Plus } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 const Discover = () => {
     return (
         <div className="flex flex-col gap-8">
-            <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-extrabold mb-1">Discover</h1>
-                    <p className="text-muted">Find new apps and services to subscribe to.</p>
-                </div>
-                <div className="relative w-full md:w-auto">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted" size={20} />
-                    <input type="text" placeholder="Search services..." className="form-input pl-10 w-full md:w-80" />
-                </div>
-            </header>
+            <PageHeader
+                title="Discover"
+                description="Find new apps and services to subscribe to."
+                action={
+                    <div className="relative w-full md:w-auto">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted" size={20} />
+                        <input type="text" placeholder="Search services..." className="form-input pl-10 w-full md:w-80" />
+                    </div>
+                }
+            />
 
             {/* Featured Banner */}
-            <div className="card bg-gradient-to-r from-pink-600 to-orange-500 border-none text-white p-8 relative overflow-hidden h-64 flex items-center">
+            <div className="card bg-gradient-to-r from-pink-600 to-orange-500 border-none text-white p-8 relative overflow-hidden flex items-center" style={{ minHeight: '200px' }}>
                 <div className="relative z-10 max-w-2xl">
                     <div className="badge bg-white/20 text-white border-none mb-4">Trending Now</div>
                     <h2 className="text-4xl font-extrabold mb-4">MasterClass: Learn from the best</h2>
                     <p className="opacity-90 mb-6 text-lg">Unlock your potential with classes from world-renowned instructors.</p>
                     <button className="btn bg-white text-black hover:bg-gray-100">View Plans</button>
                 </div>
-                <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-black/50 to-transparent"></div>
             </div>
 
             {/* Popular Categories */}
@@ -31,7 +31,7 @@ const Discover = () => {
                 <h3 className="font-bold text-xl mb-4">Popular Categories</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {['Entertainment', 'Music', 'Productivity', 'Design', 'Education', 'Health'].map((cat, i) => (
-                        <div key={i} className="card p-4 flex flex-col items-center justify-center gap-2 hover:bg-input cursor-pointer transition-colors text-center h-32">
+                        <div key={i} className="card p-4 flex flex-col items-center justify-center gap-2 hover:bg-input cursor-pointer transition-all text-center h-32">
                             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
                                 <Star size={20} />
                             </div>
@@ -56,7 +56,7 @@ const Discover = () => {
                         { name: 'Duolingo', cat: 'Education', rating: 4.8, price: 'Free / $6.99', color: '#58CC02' },
                         { name: 'Slack', cat: 'Business', rating: 4.5, price: 'Free / $8', color: '#4A154B' },
                     ].map((app, i) => (
-                        <div key={i} className="card flex items-center gap-4 p-4 hover:border-primary/50 transition-colors group">
+                        <div key={i} className="card flex items-center gap-4 p-4 hover:border-primary/50 transition-all group">
                             <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: app.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}>
                                 {app.name.charAt(0)}
                             </div>
