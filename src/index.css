@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Display:wght@300;400;500;700&family=Noto+Sans+Mono:wght@400;700&family=Noto+Serif+Display:ital,wght@0,300;0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+Mono:wght@100..900&family=Noto+Serif+Display:ital,wght@0,100..900;1,100..900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,18 +6,28 @@
 
 :root {
   color-scheme: dark;
+  --grid-line: rgba(255, 255, 255, 0.07);
 }
 
 body {
   margin: 0;
   background-color: #0e0e0e;
-  color: #ffffff;
-  font-family: 'Noto Sans Display', sans-serif;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 80px 80px;
+  color: #f1f5f9;
+  /* slate-100 */
+  font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, .serif-statement {
+.mono-label {
+  @apply font-mono text-[10px] tracking-[0.2em] uppercase text-slate-500;
+}
+
+.serif-display {
   font-family: 'Noto Serif Display', serif;
 }
 
@@ -25,13 +35,23 @@ h1, h2, h3, h4, .serif-statement {
   font-family: 'Noto Sans Mono', monospace;
 }
 
-/* Custom transitions */
-.fade-in {
-  opacity: 0;
-  animation: fadeIn 1s forwards cubic-bezier(0.16, 1, 0.3, 1);
+/* Custom animations */
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.selection\:bg-primary\/30 *::selection {
+  background-color: rgba(51, 125, 230, 0.3);
 }
