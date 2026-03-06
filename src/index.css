@@ -24,7 +24,7 @@ body {
 }
 
 .mono-label {
-  @apply font-mono text-[10px] tracking-[0.2em] uppercase text-slate-500;
+  @apply font-mono text-[10px] tracking-[0.2em] uppercase text-slate-400 font-bold;
 }
 
 .serif-display {
