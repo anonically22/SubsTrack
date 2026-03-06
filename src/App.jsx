@@ -40,6 +40,42 @@ const getBrandLogo = (domain) => {
   return `https://cdn.brandfetch.io/${domain}?c=${BRANDFETCH_CLIENT_ID}`;
 };
 
+// --- Mock Data ---
+const INITIAL_SUBSCRIPTIONS = [
+  { id: '1', name: "Netflix Premium", domain: "netflix.com", cost: 499, cycle: "Monthly", next: "12 Mar", category: "Streaming" },
+  { id: '2', name: "GitHub Copilot", domain: "github.com", cost: 1000, cycle: "Monthly", next: "28 Mar", category: "Software" },
+  { id: '3', name: "DigitalOcean", domain: "digitalocean.com", cost: 1240, cycle: "Monthly", next: "01 Apr", category: "Cloud" },
+  { id: '4', name: "Disney Plus", domain: "disneyplus.com", cost: 149, cycle: "Monthly", next: "15 Mar", category: "Streaming" },
+  { id: '5', name: "AWS Server 01", domain: "aws.amazon.com", cost: 850, cycle: "Usage", next: "30 Mar", category: "Cloud", highlight: true },
+  { id: '6', name: "Figma Pro", domain: "figma.com", cost: 990, cycle: "Monthly", next: "10 Apr", category: "Software" },
+  { id: '7', name: "Notion", domain: "notion.so", cost: 400, cycle: "Annual", next: "Jan 2025", category: "Software" },
+  { id: '8', name: "ChatGPT Plus", domain: "openai.com", cost: 1650, cycle: "Monthly", next: "20 Mar", category: "Software" },
+  { id: '9', name: "Spotify Premium", domain: "spotify.com", cost: 119, cycle: "Monthly", next: "19 Mar", category: "Streaming" },
+];
+
+const INITIAL_TRANSACTIONS = [
+  { id: 't1', amount: 45000, type: 'income', category: 'Salary Node', date: '01 Mar' },
+  { id: 't2', amount: 15600, type: 'expense', category: 'Operational Rent', date: '02 Mar' },
+  { id: 't3', amount: 499, type: 'subscription', category: 'Netflix Premium', date: '12 Feb' },
+  { id: 't4', amount: 1000, type: 'subscription', category: 'GitHub Copilot', date: '28 Feb' },
+  { id: 't5', amount: 2400, type: 'expense', category: 'Logistics / Travel', date: '03 Mar' },
+];
+
+const INITIAL_ADMIN_METRICS = {
+  totalUsers: 1248,
+  activeSessions: 84,
+  apiCallsToday: 15402,
+  totalSubscriptions: 8642,
+  totalTransactions: 32401
+};
+
+const MOCK_API_LOGS = [
+  { id: 1, endpoint: '/api/v1/auth/login', requests: 124, avgTime: '42ms', lastCall: '2s ago', status: 200 },
+  { id: 2, endpoint: '/api/v1/subs/list', requests: 842, avgTime: '118ms', lastCall: '5s ago', status: 200 },
+  { id: 3, endpoint: '/api/v1/flow/summary', requests: 312, avgTime: '86ms', lastCall: '12s ago', status: 200 },
+  { id: 4, endpoint: '/api/v1/admin/metrics', requests: 45, avgTime: '210ms', lastCall: '1m ago', status: 200 },
+];
+
 function AnimatedNumber({ value, prefix = "₹", suffix = "" }) {
   const [displayValue, setDisplayValue] = useState(0);
 
@@ -87,12 +123,45 @@ function SectionReveal({ children, className = "" }) {
 // --- Main App Component ---
 
 export default function App() {
-  const [view, setView] = useState('landing'); // landing, auth, dashboard, subs, flow
+  const [view, setView] = useState('landing'); // landing, auth, dashboard, subs, flow, admin
   const [user, setUser] = useState(null);
+
+  // Central State
+  const [subscriptions, setSubscriptions] = useState(INITIAL_SUBSCRIPTIONS);
+  const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
+  const [apiLogs, setApiLogs] = useState(MOCK_API_LOGS);
+  const [adminMetrics, setAdminMetrics] = useState(INITIAL_ADMIN_METRICS);
+
+  // Modal State
+  const [modal, setModal] = useState({ type: null, isOpen: false });
 
   const navigateTo = (newView) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setView(newView);
+  };
+
+  const handleAddSubscription = (newSub) => {
+    const sub = {
+      ...newSub,
+      id: Math.random().toString(36).substr(2, 9),
+      days: Math.floor(Math.random() * 30),
+    };
+    setSubscriptions([sub, ...subscriptions]);
+    setModal({ type: null, isOpen: false });
+    // Simulate API call log
+    setApiLogs([{ id: Date.now(), endpoint: '/api/v1/subs/create', requests: 1, avgTime: '145ms', lastCall: 'Just now', status: 201 }, ...apiLogs]);
+  };
+
+  const handleAddTransaction = (newTx) => {
+    const tx = {
+      ...newTx,
+      id: Math.random().toString(36).substr(2, 9),
+      date: 'Just now',
+    };
+    setTransactions([tx, ...transactions]);
+    setModal({ type: null, isOpen: false });
+    // Simulate API call log
+    setApiLogs([{ id: Date.now(), endpoint: '/api/v1/flow/transaction', requests: 1, avgTime: '92ms', lastCall: 'Just now', status: 201 }, ...apiLogs]);
   };
 
   return (
@@ -109,15 +178,220 @@ export default function App() {
           }} />
         )}
 
-        {(view === 'dashboard' || view === 'subs' || view === 'flow') && (
+        {(view === 'dashboard' || view === 'subs' || view === 'flow' || view === 'admin') && (
           <AppShell key="app" activeView={view} onViewChange={navigateTo} user={user}>
-            {view === 'dashboard' && <Dashboard />}
-            {view === 'subs' && <SubscriptionManager />}
-            {view === 'flow' && <MoneyFlow />}
+            {view === 'dashboard' && (
+              <Dashboard
+                subscriptions={subscriptions}
+                transactions={transactions}
+                onAddSub={() => setModal({ type: 'subscription', isOpen: true })}
+                onAddFlow={() => setModal({ type: 'transaction', isOpen: true })}
+              />
+            )}
+            {view === 'subs' && (
+              <SubscriptionManager
+                subscriptions={subscriptions}
+                setSubscriptions={setSubscriptions}
+                onOpenAdd={() => setModal({ type: 'subscription', isOpen: true })}
+              />
+            )}
+            {view === 'flow' && (
+              <MoneyFlow
+                transactions={transactions}
+                setTransactions={setTransactions}
+                onOpenAdd={() => setModal({ type: 'transaction', isOpen: true })}
+              />
+            )}
+            {view === 'admin' && (
+              <AdminDashboard
+                metrics={adminMetrics}
+                apiLogs={apiLogs}
+              />
+            )}
           </AppShell>
         )}
+
+        {/* Modals Container */}
+        <AnimatePresence>
+          {modal.isOpen && (
+            <Modal
+              onClose={() => setModal({ ...modal, isOpen: false })}
+              title={modal.type === 'subscription' ? 'Register New Subscription' : 'New Transaction Node'}
+            >
+              {modal.type === 'subscription' && (
+                <SubscriptionForm onSubmit={handleAddSubscription} onCancel={() => setModal({ ...modal, isOpen: false })} />
+              )}
+              {modal.type === 'transaction' && (
+                <TransactionForm onSubmit={handleAddTransaction} onCancel={() => setModal({ ...modal, isOpen: false })} />
+              )}
+            </Modal>
+          )}
+        </AnimatePresence>
       </AnimatePresence>
     </div>
+  );
+}
+
+// --- Generic Modal Component ---
+
+function Modal({ onClose, title, children }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="w-full max-w-lg bg-[#0c0c0c] border border-white/10 shadow-3xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-8 py-6 border-b border-white/5">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-primary">{title}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-white/5 transition-colors">
+            <Plus className="w-5 h-5 rotate-45 text-slate-500" />
+          </button>
+        </div>
+        <div className="p-8">
+          {children}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// --- Subscription Form ---
+
+function SubscriptionForm({ onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({ name: '', domain: '', cost: '', cycle: 'Monthly', category: 'Software' });
+
+  return (
+    <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Resource_Name</label>
+          <input
+            type="text"
+            required
+            placeholder="e.g. Netflix"
+            className="w-full bg-white/5 border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Domain_Authority</label>
+          <input
+            type="text"
+            placeholder="netflix.com"
+            className="w-full bg-white/5 border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none"
+            value={formData.domain}
+            onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Monthly_Cost</label>
+          <input
+            type="number"
+            required
+            className="w-full bg-white/5 border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none"
+            value={formData.cost}
+            onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Billing_Cycle</label>
+          <select
+            className="w-full bg-black border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none appearance-none"
+            value={formData.cycle}
+            onChange={(e) => setFormData({ ...formData, cycle: e.target.value })}
+          >
+            <option>Monthly</option>
+            <option>Annual</option>
+            <option>Usage</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-4 pt-4">
+        <button type="submit" className="flex-1 py-4 bg-white text-black font-bold uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-colors">
+          Establish Subscription
+        </button>
+        <button type="button" onClick={onCancel} className="px-8 py-4 border border-white/10 text-white font-bold uppercase tracking-widest text-[10px] hover:bg-white/5 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// --- Transaction Form ---
+
+function TransactionForm({ onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({ category: '', amount: '', type: 'expense' });
+
+  return (
+    <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }}>
+      <div className="space-y-2">
+        <label className="mono-label !text-[9px]">Transaction_Category</label>
+        <input
+          type="text"
+          required
+          placeholder="e.g. Rent / Salary"
+          className="w-full bg-white/5 border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none"
+          value={formData.category}
+          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Value_Amount</label>
+          <input
+            type="number"
+            required
+            className="w-full bg-white/5 border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none"
+            value={formData.amount}
+            onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Flow_Direction</label>
+          <div className="flex border border-white/10 h-[54px]">
+            <button
+              type="button"
+              className={`flex-1 font-mono text-[10px] uppercase font-bold tracking-widest transition-colors ${formData.type === 'income' ? 'bg-primary text-black' : 'hover:bg-white/5 text-slate-400'}`}
+              onClick={() => setFormData({ ...formData, type: 'income' })}
+            >
+              Income
+            </button>
+            <button
+              type="button"
+              className={`flex-1 font-mono text-[10px] uppercase font-bold tracking-widest transition-colors ${formData.type === 'expense' ? 'bg-red-500 text-white' : 'hover:bg-white/5 text-slate-400'}`}
+              onClick={() => setFormData({ ...formData, type: 'expense' })}
+            >
+              Expense
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4 pt-4">
+        <button type="submit" className="flex-1 py-4 bg-white text-black font-bold uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-colors">
+          Record Transaction
+        </button>
+        <button type="button" onClick={onCancel} className="px-8 py-4 border border-white/10 text-white font-bold uppercase tracking-widest text-[10px] hover:bg-white/5 transition-colors">
+          Abort
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -641,8 +915,10 @@ function AppShell({ children, activeView, onViewChange, user }) {
                 </div>
                 <div className="p-2 space-y-1">
                   <DropdownItem icon={<User className="w-4 h-4" />} label="Profile" />
+                  <DropdownItem icon={<BarChart3 className="w-4 h-4 text-primary" />} label="Admin Monitor" onClick={() => { onViewChange('admin'); setProfileOpen(false); }} />
                   <DropdownItem icon={<Settings className="w-4 h-4" />} label="Settings" />
-                  <DropdownItem icon={<LogOut className="w-4 h-4 text-red-400" />} label="Logout" onClick={() => window.location.reload()} />
+                  <div className="h-px bg-white/5 mx-2 my-1"></div>
+                  <DropdownItem icon={<LogOut className="w-4 h-4 text-red-100/40" />} label="Logout" onClick={() => window.location.reload()} />
                 </div>
               </motion.div>
             )}
@@ -655,9 +931,9 @@ function AppShell({ children, activeView, onViewChange, user }) {
         {children}
       </main>
 
-      {/* Floating Navigation */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50">
-        <nav className="flex items-center bg-black/80 backdrop-blur-xl border border-white/10 rounded-full p-2 gap-2 shadow-2xl">
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 z-50 px-4 pb-4 md:pb-0">
+        <nav className="flex items-center justify-around md:justify-start bg-black/80 backdrop-blur-2xl border border-white/10 rounded-2xl md:rounded-full p-2 gap-2 shadow-2xl max-w-md mx-auto md:mx-0">
           <NavButton
             active={activeView === 'dashboard'}
             onClick={() => onViewChange('dashboard')}
@@ -710,7 +986,18 @@ function NavButton({ active, onClick, icon, label }) {
 
 // --- Dashboard View ---
 
-function Dashboard() {
+function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow }) {
+  const monthlyIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const monthlyExpenses = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const subTotal = subscriptions.reduce((acc, s) => acc + s.cost, 0);
+  const remaining = monthlyIncome - monthlyExpenses - subTotal;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -719,10 +1006,10 @@ function Dashboard() {
     >
       {/* Top Section: Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        <OverviewCard label="Monthly_Income" value={45000} color="text-slate-200" />
-        <OverviewCard label="Monthly_Expenses" value={21000} color="text-slate-200" />
-        <OverviewCard label="Subscriptions_Cost" value={1800} color="text-primary" />
-        <OverviewCard label="Remaining_Balance" value={22200} color="text-white" highlight />
+        <OverviewCard label="Monthly_Income" value={monthlyIncome} color="text-slate-200" />
+        <OverviewCard label="Monthly_Expenses" value={monthlyExpenses} color="text-slate-200" />
+        <OverviewCard label="Subscriptions_Cost" value={subTotal} color="text-primary" />
+        <OverviewCard label="Remaining_Balance" value={remaining} color="text-white" highlight />
       </div>
 
       {/* Upcoming Renewals */}
@@ -736,10 +1023,9 @@ function Dashboard() {
         </div>
 
         <div className="flex flex-nowrap gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
-          <RenewalCard name="Netflix" domain="netflix.com" days={5} cost={499} />
-          <RenewalCard name="Spotify" domain="spotify.com" days={12} cost={119} />
-          <RenewalCard name="AWS Node" domain="aws.amazon.com" days={18} cost={850} />
-          <RenewalCard name="GitHub Copilot" domain="github.com" days={22} cost={1000} />
+          {subscriptions.slice(0, 4).map(sub => (
+            <RenewalCard key={sub.id} name={sub.name} domain={sub.domain} days={Math.floor(Math.random() * 30)} cost={sub.cost} />
+          ))}
         </div>
       </section>
 
@@ -751,8 +1037,9 @@ function Dashboard() {
             <h3 className="text-2xl font-bold uppercase tracking-tight">Quick Insights</h3>
           </div>
           <div className="space-y-4">
-            <InsightItem text="“You spent ₹1,800 on subscriptions this month.”" />
-            <InsightItem text="“Subscriptions account for 7% of your monthly spending.”" />
+            <InsightItem text={`“You spent ₹${subTotal} on subscriptions this month.”`} />
+            <InsightItem text={`“Subscriptions account for ${Math.round((subTotal / monthlyIncome) * 100)}% of your monthly spending.”`} />
+            <InsightItem text={`“Your largest recurring expense is ${subscriptions.sort((a, b) => b.cost - a.cost)[0]?.name}.”`} />
           </div>
         </div>
 
@@ -762,8 +1049,18 @@ function Dashboard() {
             <h3 className="text-2xl font-bold uppercase tracking-tight">Quick Actions</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <ActionButton icon={<Plus className="w-5 h-5" />} label="Add Subscription" color="bg-primary/20 hover:bg-primary/30 border-primary/20" />
-            <ActionButton icon={<Zap className="w-5 h-5" />} label="Add Transaction" color="bg-white/5 hover:bg-white/10 border-white/5" />
+            <ActionButton
+              icon={<Plus className="w-5 h-5" />}
+              label="Add Subscription"
+              color="bg-primary/20 hover:bg-primary/30 border-primary/20"
+              onClick={onAddSub}
+            />
+            <ActionButton
+              icon={<Zap className="w-5 h-5" />}
+              label="Add Transaction"
+              color="bg-white/5 hover:bg-white/10 border-white/5"
+              onClick={onAddFlow}
+            />
           </div>
         </div>
       </div>
@@ -822,9 +1119,12 @@ function InsightItem({ text }) {
   );
 }
 
-function ActionButton({ icon, label, color }) {
+function ActionButton({ icon, label, color, onClick }) {
   return (
-    <button className={`flex items-center gap-4 p-6 border transition-all text-xs font-bold uppercase tracking-widest text-white group ${color}`}>
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-4 p-6 border transition-all text-xs font-bold uppercase tracking-widest text-white group ${color}`}
+    >
       <div className="p-2 border border-white/10 group-hover:border-white/40 transition-colors">
         {icon}
       </div>
@@ -835,8 +1135,15 @@ function ActionButton({ icon, label, color }) {
 
 // --- Subscription Manager ---
 
-function SubscriptionManager() {
+// --- Subscription Manager View ---
+
+function SubscriptionManager({ subscriptions, setSubscriptions, onOpenAdd }) {
   const [search, setSearch] = useState('');
+
+  const filteredSubs = subscriptions.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
+  );
 
   return (
     <motion.div
@@ -861,21 +1168,27 @@ function SubscriptionManager() {
               className="w-full bg-black/40 border border-white/5 p-4 pl-12 text-sm focus:border-white/20 outline-none transition-all font-mono"
             />
           </div>
-          <button className="h-full px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200 shrink-0">
+          <button
+            onClick={onOpenAdd}
+            className="h-full px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200 shrink-0"
+          >
             + New
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px bg-white/5 border border-white/5 font-display transition-all">
-        <SubscriptionTableCard name="Netflix Premium" domain="netflix.com" cost={499} cycle="Monthly" next="12 Mar" />
-        <SubscriptionTableCard name="GitHub Copilot" domain="github.com" cost={1000} cycle="Monthly" next="28 Mar" />
-        <SubscriptionTableCard name="DigitalOcean" domain="digitalocean.com" cost={1240} cycle="Monthly" next="01 Apr" />
-        <SubscriptionTableCard name="Disney Plus" domain="disneyplus.com" cost={149} cycle="Monthly" next="15 Mar" />
-        <SubscriptionTableCard name="AWS Server 01" domain="aws.amazon.com" cost={850} cycle="Usage" next="30 Mar" highlight />
-        <SubscriptionTableCard name="Figma Pro" domain="figma.com" cost={990} cycle="Monthly" next="10 Apr" />
-        <SubscriptionTableCard name="Notion" domain="notion.so" cost={400} cycle="Annual" next="Jan 2025" />
-        <SubscriptionTableCard name="ChatGPT Plus" domain="openai.com" cost={1650} cycle="Monthly" next="20 Mar" />
+        {filteredSubs.map(sub => (
+          <SubscriptionTableCard
+            key={sub.id}
+            name={sub.name}
+            domain={sub.domain}
+            cost={sub.cost}
+            cycle={sub.cycle}
+            next={sub.next}
+            highlight={sub.highlight}
+          />
+        ))}
       </div>
     </motion.div>
   );
@@ -927,7 +1240,17 @@ function SubscriptionTableCard({ name, domain, cost, cycle, next, highlight }) {
 
 // --- Money Flow View ---
 
-function MoneyFlow() {
+function MoneyFlow({ transactions, setTransactions, onOpenAdd }) {
+  const monthlyIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const monthlyExpenses = transactions
+    .filter(t => t.type === 'expense' || t.type === 'subscription')
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const netBalance = monthlyIncome - monthlyExpenses;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -939,72 +1262,157 @@ function MoneyFlow() {
           <p className="mono-label">Ledger_Sync</p>
           <h2 className="text-4xl font-bold uppercase tracking-tight">Money Flow</h2>
         </div>
-        <button className="px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200">
-          + Transaction
+        <button
+          onClick={onOpenAdd}
+          className="px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-colors shrink-0"
+        >
+          + Add Transaction
         </button>
       </div>
 
-      {/* Monthly Summary */}
-      <div className="bg-black/40 border border-white/5 p-8 grid grid-cols-2 md:grid-cols-4 gap-8">
-        <SummaryItem label="Income" value={45000} type="plus" />
-        <SummaryItem label="Expenses" value={21000} type="minus" />
-        <SummaryItem label="Subscriptions" value={1800} type="minus" />
-        <SummaryItem label="Net_Balance" value={22200} type="total" />
+      {/* Summary Banner */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 border border-white/5">
+        <SummaryBlock label="Total_Income" value={monthlyIncome} color="text-green-400" />
+        <SummaryBlock label="Total_Expenses" value={monthlyExpenses} color="text-red-400" />
+        <SummaryBlock label="Net_Balance" value={netBalance} highlight />
+        <SummaryBlock label="Liquidity_Status" value="Operational" isStatus />
       </div>
 
       {/* Transaction List */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-4 px-6">
-          <p className="mono-label">Chronicle</p>
-          <div className="h-px flex-1 bg-white/5"></div>
+      <div className="space-y-1">
+        <div className="flex px-6 py-3 border-b border-white/5 text-[9px] mono-label text-slate-500 uppercase">
+          <span className="flex-1">Direction / Category</span>
+          <span className="w-24 text-right">Date</span>
+          <span className="w-32 text-right">Amount</span>
         </div>
-
-        <div className="space-y-1 bg-white/5 border border-white/5">
-          <TransactionItem name="Salary Deposit" category="Income" amount={45000} date="01 Mar" type="plus" />
-          <TransactionItem name="Lidl Groceries" category="Expenses" amount={1200} date="02 Mar" type="minus" />
-          <TransactionItem name="Netflix Subscription" category="Subs" amount={499} date="03 Mar" type="minus" />
-          <TransactionItem name="Petrol / Gas" category="Transport" amount={2500} date="04 Mar" type="minus" />
-          <TransactionItem name="Monthly Rent" category="Rent" amount={12000} date="05 Mar" type="minus" />
-          <TransactionItem name="Freelance Payout" category="Income" amount={8000} date="06 Mar" type="plus" />
+        <div className="divide-y divide-white/5 border border-white/5 bg-black/20">
+          {transactions.map(t => (
+            <div key={t.id} className="flex items-center px-6 py-5 hover:bg-white/[0.02] transition-colors group">
+              <div className="flex-1 flex items-center gap-4">
+                <div className={`p-2 rounded ${t.type === 'income' ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-slate-400'}`}>
+                  {t.type === 'income' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                </div>
+                <div>
+                  <p className="font-bold text-sm tracking-tight uppercase">{t.category}</p>
+                  <p className="text-[10px] mono-label !text-slate-500">{t.type.toUpperCase()}</p>
+                </div>
+              </div>
+              <p className="w-24 text-right font-mono text-[11px] text-slate-400">{t.date}</p>
+              <p className={`w-32 text-right font-mono font-bold ${t.type === 'income' ? 'text-green-400' : 'text-slate-200'}`}>
+                {t.type === 'income' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </motion.div>
   );
 }
 
-function SummaryItem({ label, value, type }) {
-  const color = type === 'plus' ? 'text-green-400' : type === 'minus' ? 'text-red-400' : 'text-primary';
+function SummaryBlock({ label, value, color, highlight, isStatus }) {
   return (
-    <div className="space-y-2">
-      <p className="mono-label !text-[8px]">{label}</p>
-      <div className={`text-xl font-mono font-bold ${color}`}>
-        {type === 'minus' ? '-' : type === 'plus' ? '+' : ''}
-        <AnimatedNumber value={value} prefix="" />
-      </div>
+    <div className={`p-6 bg-black/40 ${highlight ? 'ring-1 ring-primary/20 bg-primary/5' : ''}`}>
+      <p className="mono-label !text-[8px] mb-2">{label}</p>
+      {isStatus ? (
+        <div className="flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+          <span className="text-xl font-bold uppercase tracking-tight tracking-widest">{value}</span>
+        </div>
+      ) : (
+        <div className={`text-2xl font-mono font-black ${color || 'text-white'}`}>
+          {typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : value}
+        </div>
+      )}
     </div>
   );
 }
 
-function TransactionItem({ name, category, amount, date, type }) {
-  const isPlus = type === 'plus';
+// --- Admin Dashboard View ---
+
+function AdminDashboard({ metrics, apiLogs }) {
   return (
-    <div className="flex items-center justify-between p-6 bg-background-dark hover:bg-white/[0.03] transition-all group">
-      <div className="flex items-center gap-6">
-        <div className={`w-10 h-10 flex items-center justify-center border ${isPlus ? 'border-green-500/20 text-green-500' : 'border-white/10 text-slate-400'}`}>
-          {isPlus ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="p-8 md:p-12 space-y-16 max-w-[1400px] mx-auto"
+    >
+      <div className="space-y-1">
+        <p className="mono-label">System_Access: MASTER_ADMIN</p>
+        <h2 className="text-4xl font-bold uppercase tracking-tight text-white">Architecture Monitor</h2>
+      </div>
+
+      {/* System Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-px bg-white/5 border border-white/5">
+        <AdminMetric label="Total_Users" value={metrics.totalUsers} />
+        <AdminMetric label="Active_Sessions" value={metrics.activeSessions} />
+        <AdminMetric label="API_Calls_24h" value={metrics.apiCallsToday} />
+        <AdminMetric label="Total_Subs" value={metrics.totalSubscriptions} />
+        <AdminMetric label="Ledger_Entries" value={metrics.totalTransactions} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* API Monitoring */}
+        <div className="space-y-6">
+          <h3 className="mono-label !text-primary">API_Protocol_Monitoring</h3>
+          <div className="border border-white/5 bg-black/40 overflow-hidden">
+            <table className="w-full text-left text-[11px] font-mono">
+              <thead className="bg-white/5 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-normal">Endpoint</th>
+                  <th className="px-4 py-3 font-normal text-right">Calls</th>
+                  <th className="px-4 py-3 font-normal text-right">Latency</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {apiLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-slate-300">{log.endpoint}</td>
+                    <td className="px-4 py-3 text-right">{log.requests}</td>
+                    <td className="px-4 py-3 text-right text-primary">{log.avgTime}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div>
-          <h4 className="font-bold text-sm tracking-tight uppercase">{name}</h4>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="mono-label !text-[8px] !text-slate-300">{category}</span>
-            <span className="text-slate-600 font-mono text-[9px]">•</span>
-            <span className="mono-label !text-[8px] !text-slate-300">{date}</span>
+
+        {/* Testing Controls */}
+        <div className="space-y-6">
+          <h3 className="mono-label !text-primary">Simulated_Controls</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <ControlToggle label="Test_Mode" active />
+            <ControlToggle label="High_Traffic_Sim" />
+            <ControlToggle label="Reset_Demo_Buffer" />
+            <ControlToggle label="Verbose_Logging" />
           </div>
         </div>
       </div>
-      <div className={`text-sm font-mono font-bold ${isPlus ? 'text-green-400' : 'text-slate-200'}`}>
-        {isPlus ? '+' : '-'}₹{amount.toLocaleString('en-IN')}
-      </div>
+    </motion.div>
+  );
+}
+
+function AdminMetric({ label, value }) {
+  return (
+    <div className="p-6 bg-black/40">
+      <p className="mono-label !text-[8px] mb-2">{label}</p>
+      <p className="text-2xl font-mono font-bold text-white tracking-tighter">
+        {value.toLocaleString()}
+      </p>
+    </div>
+  );
+}
+
+function ControlToggle({ label, active }) {
+  const [isOn, setIsOn] = useState(active);
+  return (
+    <div className="flex items-center justify-between p-4 border border-white/5 bg-white/[0.02] hover:border-white/20 transition-all">
+      <span className="mono-label !text-[10px]">{label}</span>
+      <button
+        onClick={() => setIsOn(!isOn)}
+        className={`w-10 h-5 rounded-full relative transition-colors ${isOn ? 'bg-primary' : 'bg-white/10'}`}
+      >
+        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isOn ? 'right-1' : 'left-1'}`}></div>
+      </button>
     </div>
   );
 }

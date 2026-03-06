@@ -1,112 +1,137 @@
 # SubsTrack
 
-The original goal for SubsTrack was simple: track subscriptions. While working on it, I realized that most tools in this space focus on budgeting mechanics rather than **awareness**.
+Originally the idea was just to track subscriptions, but while working on it I realized the bigger problem is **financial awareness**. Most tools focus on budgeting mechanics or expense categorization. SubsTrack instead focuses on helping users **see recurring spending clearly** and understand the patterns behind it.
 
-This project is an attempt to build something slightly different.
+The project is currently in the **frontend completion phase**, where the goal is to build a fully functioning interface with dummy logic before connecting the backend.
 
-Instead of behaving like a traditional budgeting app, SubsTrack focuses on the **psychological impact of recurring spending**. Subscriptions are easy to ignore because they are small, automatic, and frictionless. The idea behind this project is to surface those patterns in a way that makes the cost more visible.
-
-The aesthetic direction is inspired by institutional fintech and data-oriented platforms — calm, precise, and slightly clinical.
+The design direction is inspired by institutional fintech and data platforms — calm, structured, and analytical.
 
 ---
 
-## Initial Direction
+# Core Idea
 
-When I started shaping the product direction, I focused on two core ideas:
+Subscriptions feel small because they are recurring and frictionless.  
 
-1. **Financial awareness over financial control**  
-   Most apps try to force users into budgeting systems. SubsTrack instead focuses on simply showing the data clearly.
+₹499/month does not feel significant.  
+₹5,988/year changes perception.
 
-2. **Psychological visibility**  
-   A ₹499/month subscription feels small.  
-   A ₹5,988/year recurring payment feels very different.
+SubsTrack is designed to expose these patterns and show how recurring payments shape spending behavior.
 
-The goal is to surface these patterns so the user naturally understands their spending behavior.
+The platform combines:
 
----
+- Subscription tracking
+- Money flow awareness
+- Behavioral spending insights
 
-## Design Logic
-
-I approached the UI more like a financial dashboard than a productivity app.
-
-### Layout
-
-Everything follows a **structured grid system**.  
-Spacing and alignment are intentionally rigid so the interface feels analytical rather than decorative.
-
-Large whitespace and consistent vertical rhythm are used to keep the interface calm and readable.
+The goal is not to force budgeting decisions but to **surface financial patterns clearly**.
 
 ---
 
-### Typography System
+# Design Philosophy
 
-Typography is doing most of the heavy lifting in the design.
+The UI is intentionally minimal and structured.
 
-- **Noto Serif Display**  
-  Used for narrative statements and high-level messaging.
+Instead of looking like a productivity tool, the interface behaves more like a **financial dashboard**.
 
-- **Noto Sans Display**  
-  Used for functional UI components and navigation.
+Key principles:
 
-- **Noto Sans Mono**  
-  Used for all numbers and currency values.  
-  Showing financial data in a monospaced font makes it feel more like raw data than a price label.
+- Calm visual hierarchy
+- Strong typography
+- Large whitespace
+- Data-first layout
+- Subtle interactions
+
+The interface should feel analytical rather than decorative.
 
 ---
 
-### Color Direction
+# Layout System
 
-The palette is intentionally minimal.
+The interface uses a structured grid and consistent spacing to keep the UI disciplined and readable.
 
-Primary background  
+Cards and content blocks are used instead of tables wherever possible to improve scanability.
+
+The application layout is designed **mobile-first**, with a bottom navigation system similar to native mobile apps.
+
+---
+
+# Typography System
+
+Typography carries most of the emotional tone of the product.
+
+**Noto Serif Display**  
+Used for narrative statements and insight sections.
+
+**Noto Sans Display**  
+Used for interface text and UI labels.
+
+**Noto Sans Mono**  
+Used for all financial values.
+
+Displaying currency in a monospace font helps reinforce the idea that these numbers represent **data points rather than price tags**.
+
+---
+
+# Color Direction
+
+Background  
 `#0e0e0e`
 
-Accent color  
+Accent  
 `#337de6`
 
-The goal was to avoid gradients or decorative color systems. The interface should feel more like a financial instrument than a marketing page.
+The palette is intentionally minimal. The interface avoids gradients or decorative color systems to maintain a calm fintech aesthetic.
 
 ---
 
-## Product Structure
+# Product Structure
 
-The product is designed around three main areas.
+The platform currently includes four main areas.
 
-### Dashboard (Home)
+---
 
-The dashboard acts as the central overview.
+## Dashboard (Home)
 
-It shows:
+The dashboard acts as the financial overview.
+
+It displays:
+
 - Monthly income
 - Monthly expenses
-- Total subscription cost
+- Subscription spending
 - Remaining balance
 
-Additional sections include upcoming subscription renewals and short insight statements based on spending patterns.
+Additional sections include:
+
+Upcoming subscription renewals  
+Behavioral spending insights  
+Quick actions for adding data
+
+The goal is to make the dashboard feel like a **financial awareness panel**.
 
 ---
 
-### Subscription Manager
+## Subscription Manager
 
-This section focuses purely on subscription tracking.
+The subscription manager allows users to track recurring services.
 
-Subscriptions are displayed as cards instead of tables so they are easier to scan. Each card shows:
+Subscriptions are displayed as cards rather than tables and include:
 
-- Subscription name
+- Service name
 - Cost
 - Billing cycle
-- Next renewal
+- Renewal date
 - Renewal countdown
 
-Users can add, edit, or remove subscriptions through a minimal modal form.
+Users can add, edit, or remove subscriptions through modal forms.
 
 ---
 
-### Money Flow
+## Money Flow
 
-While subscriptions are the core focus, I added a simple **Money Flow** section to make the platform usable for people who do not rely heavily on subscriptions.
+Money Flow works as a lightweight financial ledger.
 
-This section works as a lightweight ledger showing income and expenses in chronological order.
+It allows users to record income and expenses so subscription costs can be seen in context.
 
 Example entries:
 
@@ -115,67 +140,108 @@ Example entries:
 - ₹300 Transport  
 - ₹499 Netflix
 
-This creates context around subscription spending rather than isolating it.
+This section intentionally avoids complicated budgeting systems and focuses on **simple chronological tracking**.
 
 ---
 
-## Interaction Philosophy
+## Behavioral Insight System
 
-Animations are intentionally subtle.
+The dashboard includes a simple insight layer that generates observations based on the current financial data.
 
-The goal is not to make the interface feel playful but **calm and deliberate**.
+Example insights:
 
-Interactions currently include:
+Subscriptions account for a percentage of total spending  
+Spending increased compared to last month  
+Largest recurring expense  
+Subscription growth trends
 
-- Fade-in transitions
-- Number count animations
-- Subtle hover elevation on cards
-- Smooth modal transitions
-
-The pacing is intentionally slower than typical dashboard animations so the interface feels closer to a financial terminal.
+These insights are currently generated using dummy logic but will later be connected to real data.
 
 ---
 
-## Tech Stack
+## Master Admin Dashboard
 
-The stack was kept relatively simple so the focus could remain on the product design.
+A hidden admin dashboard has been added for internal monitoring.
 
-- **React + Vite**
-- **Tailwind CSS (v3)**
-- **Framer Motion** for animations and transitions
-- **Lucide React** for icons
+This panel is accessible through a restricted route and is not part of the main user navigation.
 
-The backend will eventually be handled with **Supabase**, but the current phase is focused primarily on design and interface structure.
+The admin dashboard includes:
 
----
+System metrics overview  
+API monitoring table  
+User activity list  
+Testing controls  
+Activity logs
 
-## Current Progress
-
-- [x] Landing page structure and visual direction
-- [x] Authentication layout (design stage / dummy state)
-- [x] Dashboard overview system
-- [x] Subscription manager interface
-- [x] Money flow ledger design
+This allows internal testing of platform behavior and simulated system analytics.
 
 ---
 
-## Next Steps
+# Mobile Experience
 
-The current focus is finishing the **design and ideation phase** before integrating backend logic.
+The application is designed **mobile-first**.
 
-Planned next steps:
+Key mobile features:
 
-- Supabase integration for authentication and data storage
-- Subscription CRUD functionality
-- Transaction logging for money flow
-- Insight generation based on spending patterns
+Bottom navigation bar  
+Full-width cards  
+Large touch targets  
+Vertical scrolling layout
 
-Longer term, I want to explore more behavioral insights around recurring spending.
+The interface is intended to behave like a mobile application even though a native mobile version is not implemented yet.
+
+The long-term goal is to convert the platform into a **progressive web application (PWA)**.
 
 ---
 
-## Project Note
+# Tech Stack
 
-What started as a simple subscription tracker gradually evolved into a small experiment around **financial awareness and interface psychology**.
+React + Vite  
+Tailwind CSS  
+Framer Motion  
+Lucide React  
+React Router
 
-The goal isn't to build another budgeting tool — it's to build something that makes spending patterns easier to notice.
+The backend will later be integrated using **Supabase**, but the current focus is completing the frontend architecture.
+
+---
+
+# Current Progress
+
+- [x] Product concept defined
+- [x] Design system finalized
+- [x] Landing page implemented
+- [x] Authentication interface implemented
+- [x] Dashboard structure implemented
+- [x] Subscription manager implemented
+- [x] Money flow ledger implemented
+- [x] Behavioral insight system added
+- [x] Master admin dashboard created
+- [x] Mobile-first layout implemented
+- [x] Mock data layer for frontend testing
+
+---
+
+# Next Steps
+
+The next phase of development will focus on connecting the interface to real data.
+
+Planned work includes:
+
+Supabase authentication  
+Database schema design  
+Subscription CRUD operations  
+Transaction storage  
+Insight engine powered by real data
+
+Once backend integration is complete, the platform will transition from a prototype interface to a functional product.
+
+---
+
+# Project Note
+
+What began as a simple subscription tracker gradually evolved into a small exploration of **financial awareness, behavioral design, and data visualization**.
+
+The goal is not to build another budgeting app.
+
+The goal is to build something that makes financial patterns **visible enough to change behavior naturally**.
