@@ -141,6 +141,13 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [flows, setFlows] = useState([]);
   const [activeFlowId, setActiveFlowId] = useState(null);
+  const [theme, setTheme] = useState(localStorage.getItem('subs-theme') || 'dark');
+
+  // Theme synchronization
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('subs-theme', theme);
+  }, [theme]);
   const [apiLogs, setApiLogs] = useState([]);
   const [adminMetrics, setAdminMetrics] = useState({ totalUsers: 0, activeSessions: 0, apiCallsToday: 0, totalSubscriptions: 0, totalTransactions: 0 });
 
@@ -406,6 +413,8 @@ export default function App() {
                 activeFlowId={activeFlowId}
                 setActiveFlowId={setActiveFlowId}
                 setTransactions={setTransactions}
+                theme={theme}
+                setTheme={setTheme}
               />
             )}
           </AppShell>
@@ -1290,8 +1299,11 @@ function AppShell({ children, activeView, onViewChange, user }) {
       </header>
 
       {/* Content Area */}
-      <main className="flex-1 overflow-y-auto pb-32">
-        {children}
+      <main className="flex-1 overflow-y-auto scrollbar-hide relative flex flex-col pt-2 md:pt-0">
+        <div className="flex-1">
+          {children}
+        </div>
+        <Footer />
       </main>
 
       {/* Bottom Navigation */}
@@ -1389,7 +1401,7 @@ function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow, onViewCha
 
         <div className="flex flex-nowrap gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
           {subscriptions.slice(0, 4).map(sub => (
-            <RenewalCard key={sub.id} name={sub.name} domain={sub.domain} days={Math.floor(Math.random() * 30)} cost={sub.cost} />
+            <RenewalCard key={sub.id} name={sub.name} domain={sub.domain} days={Math.floor(Math.random() * 30)} cost={sub.cost || 0} />
           ))}
         </div>
       </section>
@@ -1403,8 +1415,15 @@ function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow, onViewCha
           </div>
           <div className="space-y-4">
             <InsightItem text={`“You spent ₹${subTotal} on subscriptions this month.”`} />
-            <InsightItem text={`“Subscriptions account for ${Math.round((subTotal / monthlyIncome) * 100)}% of your monthly spending.”`} />
-            <InsightItem text={`“Your largest recurring expense is ${subscriptions.sort((a, b) => b.cost - a.cost)[0]?.name}.”`} />
+            {monthlyIncome > 0 && (
+              <InsightItem text={`“Subscriptions account for ${Math.round((subTotal / monthlyIncome) * 100)}% of your monthly spending.”`} />
+            )}
+            {subscriptions.length > 0 && (
+              <InsightItem text={`“Your largest recurring expense is ${[...subscriptions].sort((a, b) => (b.cost || 0) - (a.cost || 0))[0]?.name || 'Unknown'}.”`} />
+            )}
+            {subscriptions.length === 0 && (
+              <InsightItem text="“No active subscription protocols detected in the current node.”" />
+            )}
           </div>
         </div>
 
@@ -1435,9 +1454,9 @@ function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow, onViewCha
 
 function OverviewCard({ label, value, color, highlight }) {
   return (
-    <div className={`p-8 border border-white/5 bg-black/20 ${highlight ? 'ring-1 ring-white/10' : ''}`}>
+    <div className={`p-6 md:p-8 border border-white/5 bg-black/20 ${highlight ? 'ring-1 ring-white/10' : ''}`}>
       <p className="mono-label mb-4 text-[9px]">{label}</p>
-      <div className={`text-3xl md:text-4xl font-mono tracking-tighter ${color}`}>
+      <div className={`text-2xl md:text-3xl lg:text-4xl font-mono tracking-tighter ${color}`}>
         <AnimatedNumber value={value} />
       </div>
     </div>
@@ -1685,8 +1704,8 @@ function MoneyFlow({ flows, setFlows, activeFlowId, setActiveFlowId, transaction
               onClick={() => { setIsFlowMenuOpen(!isFlowMenuOpen); setIsOptionsOpen(false); }}
               className="flex items-center gap-4 hover:opacity-75 transition-opacity"
             >
-              <h2 className="text-4xl font-bold uppercase tracking-tight">{activeFlow.name}</h2>
-              <ChevronRight className={`w-6 h-6 transition-transform ${isFlowMenuOpen ? 'rotate-90' : ''}`} />
+              <h2 className="text-2xl md:text-4xl font-bold uppercase tracking-tight">{activeFlow.name}</h2>
+              <ChevronRight className={`w-5 h-5 md:w-6 md:h-6 transition-transform ${isFlowMenuOpen ? 'rotate-90' : ''}`} />
             </button>
 
             <AnimatePresence>
@@ -1734,11 +1753,11 @@ function MoneyFlow({ flows, setFlows, activeFlowId, setActiveFlowId, transaction
           </button>
         </div>
 
-        <div className="flex gap-4 items-center">
-          <div className="relative">
+        <div className="flex gap-2 md:gap-4 items-center w-full md:w-auto">
+          <div className="relative flex-1 md:flex-none">
             <button
               onClick={() => { setIsOptionsOpen(!isOptionsOpen); setIsFlowMenuOpen(false); }}
-              className="p-4 border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all h-[52px]"
+              className="w-full md:w-auto p-4 border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all h-[52px] flex items-center justify-center"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -1765,7 +1784,7 @@ function MoneyFlow({ flows, setFlows, activeFlowId, setActiveFlowId, transaction
 
           <button
             onClick={onOpenAdd}
-            className="px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-colors shrink-0 h-[52px] flex items-center justify-center"
+            className="flex-1 md:flex-none px-6 py-4 bg-white text-black text-[10px] md:text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-colors shrink-0 h-[52px] flex items-center justify-center"
           >
             + Add Transaction
           </button>
@@ -1826,15 +1845,15 @@ function MoneyFlow({ flows, setFlows, activeFlowId, setActiveFlowId, transaction
 
 function SummaryBlock({ label, value, color, highlight, isStatus }) {
   return (
-    <div className={`p-6 bg-black/40 ${highlight ? 'ring-1 ring-primary/20 bg-primary/5' : ''}`}>
+    <div className={`p-4 md:p-6 bg-black/40 ${highlight ? 'ring-1 ring-primary/20 bg-primary/5' : ''}`}>
       <p className="mono-label !text-[8px] mb-2">{label}</p>
       {isStatus ? (
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-xl font-bold uppercase tracking-tight tracking-widest">{value}</span>
+          <span className="text-sm md:text-lg lg:text-xl font-bold uppercase tracking-widest truncate">{value}</span>
         </div>
       ) : (
-        <div className={`text-2xl font-mono font-black ${color || 'text-white'}`}>
+        <div className={`text-lg md:text-2xl font-mono font-black ${color || 'text-white'} truncate`}>
           {typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : value}
         </div>
       )}
@@ -2037,9 +2056,10 @@ function ProfileView({ user, subscriptions, transactions, flows }) {
 
 // --- Settings View ---
 
-function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, setTransactions }) {
+function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, setTransactions, theme, setTheme }) {
   const [currency, setCurrency] = useState('₹');
   const [cycle, setCycle] = useState('Monthly');
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const handleCreateFlow = async () => {
     const name = window.prompt("Enter new ledger name (e.g., Savings, Personal, Business):");
@@ -2152,8 +2172,62 @@ function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, se
         <div className="space-y-4">
           <h3 className="mono-label !text-primary border-b border-white/5 pb-2">Interface_Appearance</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ControlToggle label="Dark_Mode_Forced" active={true} />
+            <div className="bg-black/40 border border-white/5 p-6 flex justify-between items-center group">
+              <div>
+                <p className="mono-label !text-[10px]">Theme_Mode</p>
+                <p className="font-bold uppercase tracking-widest text-sm mt-1">{theme}_Protocol</p>
+              </div>
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className={`w-12 h-6 rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-primary' : 'bg-slate-300'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${theme === 'dark' ? 'translate-x-6' : 'translate-x-0'}`}></div>
+              </button>
+            </div>
             <ControlToggle label="Compact_Ledger_Layout" active={false} />
+          </div>
+        </div>
+
+        {/* System Version & Changelog */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <h3 className="mono-label !text-primary">System_Manifest</h3>
+            <button
+              onClick={() => setShowChangelog(!showChangelog)}
+              className="text-[9px] font-mono text-slate-500 hover:text-white transition-colors uppercase tracking-[0.2em]"
+            >
+              {showChangelog ? '[HIDE_LOG]' : '[VIEW_VERSION_LOG]'}
+            </button>
+          </div>
+
+          <div className="bg-black/40 border border-white/5 p-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-mono text-[11px] font-bold text-slate-300 uppercase tracking-widest">Protocol Evolution v1.2.4</p>
+              <p className="text-[10px] font-mono text-slate-500">2026-03-07</p>
+            </div>
+
+            <AnimatePresence>
+              {showChangelog && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden space-y-4 mt-6 pt-6 border-t border-white/5"
+                >
+                  <div className="space-y-3">
+                    <p className="text-[10px] mono-label text-slate-500">_Recent_Updates</p>
+                    <ul className="space-y-2 text-[11px] font-mono text-slate-400">
+                      <li>• [FEATURE] Integrated multi-mode theme engine (Light/Dark Switch).</li>
+                      <li>• [FEATURE] Deployed global navigational footer with system telemetry.</li>
+                      <li>• [OPTIMIZATION] Reconfigured Vite rollup layers for modular chunk distribution.</li>
+                      <li>• [MOBILE] Optimized responsive grid layers for vertical viewports.</li>
+                      <li>• [FIX] Resolved Subscription_Cost aggregation logic across hidden protocols.</li>
+                      <li>• [FIX] Rectified gear icon interaction on individual fleet cards.</li>
+                    </ul>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -2168,5 +2242,74 @@ function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, se
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="px-8 py-12 md:py-20 border-t border-white/5 bg-black/20 mt-16 md:mt-32 relative z-10 pb-40 md:pb-48">
+      <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Wallet className="text-primary w-5 h-5" />
+            <span className="text-sm font-bold uppercase tracking-widest text-white">SubsTrack</span>
+          </div>
+          <p className="text-[11px] text-slate-500 max-w-sm leading-relaxed font-mono uppercase tracking-tight">
+            Synthesizing code and aesthetics to build digital products that feel as good as they work.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-12 lg:col-span-2">
+          <div className="space-y-6">
+            <p className="mono-label !text-[9px] !text-slate-500">Navigation_Node</p>
+            <div className="flex flex-col gap-3">
+              <button className="text-[11px] uppercase font-bold text-slate-400 hover:text-white transition-all text-left tracking-widest">Dashboard</button>
+              <button className="text-[11px] uppercase font-bold text-slate-400 hover:text-white transition-all text-left tracking-widest">Fleet_Overview</button>
+              <button className="text-[11px] uppercase font-bold text-slate-400 hover:text-white transition-all text-left tracking-widest">Ledger_Access</button>
+            </div>
+          </div>
+          <div className="space-y-6">
+            <p className="mono-label !text-[9px] !text-slate-500">Developer_Auth</p>
+            <div className="flex flex-col gap-3">
+              <a href="https://github.com/anonically22" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group">
+                <Globe className="w-3.5 h-3.5 text-slate-500 group-hover:text-primary transition-colors" />
+                <span className="text-[11px] uppercase font-bold text-slate-400 group-hover:text-white transition-all tracking-widest">GitHub_Repo</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <p className="mono-label !text-[9px] !text-slate-500">System_Status</p>
+          <div className="p-4 border border-white/5 bg-white/5 flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">All_Systems_Nominal</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1400px] mx-auto pt-8 mt-8 md:pt-16 md:mt-16 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
+        <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+          © 2026 Crafted with <span className="text-red-500/80">♥</span> by <span className="text-slate-200">anonical</span>
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-1 rounded-full bg-primary/40"></div>
+            <p className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">Build_Rev 1.2.4</p>
+          </div>
+          <div className="h-4 w-px bg-white/10 hidden md:block"></div>
+          <button
+            onClick={() => {
+              const main = document.querySelector('main');
+              if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="text-[10px] font-mono text-slate-400 hover:text-white uppercase tracking-widest flex items-center gap-2 transition-colors group"
+          >
+            Terminal_Top <ArrowUpRight className="w-3.5 h-3.5 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      </div>
+    </footer>
   );
 }
