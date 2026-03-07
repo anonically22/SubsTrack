@@ -496,7 +496,7 @@ export default function App() {
                   />
                 )}
 
-                <Footer />
+                <div className="h-24"></div>
               </AppShell>
             )}
           </AnimatePresence>
@@ -1143,23 +1143,7 @@ function LandingView({ onStart }) {
       </section>
 
       {/* Footer */}
-      <footer className="py-24 px-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-12 max-w-[1400px] mx-auto">
-        <div className="space-y-4 text-center md:text-left">
-          <div className="flex items-center justify-center md:justify-start gap-2">
-            <Wallet className="text-primary w-6 h-6" />
-            <span className="text-sm font-bold uppercase tracking-widest text-white">SubsTrack</span>
-          </div>
-          <p className="text-slate-500 text-xs font-mono uppercase tracking-widest">Understand recurring spending.</p>
-        </div>
-
-        <div className="flex gap-12">
-          <FooterLink label="Privacy" />
-          <FooterLink label="Terms" />
-          <FooterLink label="Contact" />
-        </div>
-
-        <p className="text-[10px] font-mono text-slate-700 uppercase tracking-widest">© 2024 SubsTrack Institutional</p>
-      </footer>
+      <Footer />
     </div>
   );
 }
