@@ -30,3 +30,5 @@ supabase.md
 .env
 .env.*
 admin_setup_guide.md
+disable_email_confirmation.md
+db_updates.md

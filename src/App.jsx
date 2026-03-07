@@ -132,8 +132,10 @@ export default function App() {
   // Central State
   const [subscriptions, setSubscriptions] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [flows, setFlows] = useState([]);
+  const [activeFlowId, setActiveFlowId] = useState(null);
   const [apiLogs, setApiLogs] = useState([]);
-  const [adminMetrics, setAdminMetrics] = useState({ totalUsers: 0, activeFleet: 0, systemHealth: '--' });
+  const [adminMetrics, setAdminMetrics] = useState({ totalUsers: 0, activeSessions: 0, apiCallsToday: 0, totalSubscriptions: 0, totalTransactions: 0 });
 
   // Modal State
   const [modal, setModal] = useState({ type: null, isOpen: false });
@@ -166,20 +168,48 @@ export default function App() {
         setTransactions([]);
         if (view !== 'landing' && view !== 'auth') {
           setView('landing');
-          window.history.pushState({}, '', '/');
+          window.history.pushState({ view: 'landing' }, '', '/');
         }
       }
     });
 
-    return () => subscription.unsubscribe();
+    const handlePopState = (e) => {
+      if (e.state && e.state.view) {
+        setView(e.state.view);
+      } else {
+        // Fallback based on URL
+        if (window.location.pathname === '/masteradmin') setView('admin');
+        else if (window.location.pathname === '/') setView('landing');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   const checkAdminStatus = async (userId) => {
     try {
       const { data } = await supabase.from('master_admins').select('id').eq('user_id', userId).single();
       setIsAdmin(!!data);
+      if (!!data) {
+        fetchAdminMetrics();
+      }
     } catch (e) {
       setIsAdmin(false);
+    }
+  };
+
+  const fetchAdminMetrics = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_admin_metrics');
+      if (data) {
+        setAdminMetrics(data);
+      }
+    } catch (e) {
+      console.error("Error fetching admin metrics:", e);
     }
   };
 
@@ -187,6 +217,21 @@ export default function App() {
     try {
       const { data: subs } = await supabase.from('subscriptions').select('*').eq('user_id', userId).order('created_at', { ascending: false });
       if (subs) setSubscriptions(subs);
+
+      const { data: userFlows } = await supabase.from('money_flows').select('*').eq('user_id', userId).order('created_at', { ascending: true });
+      let currentFlowId = null;
+      if (userFlows && userFlows.length > 0) {
+        setFlows(userFlows);
+        currentFlowId = userFlows[0].id;
+        setActiveFlowId(currentFlowId);
+      } else {
+        const { data: newFlow } = await supabase.from('money_flows').insert([{ user_id: userId, name: 'Main Ledger' }]).select();
+        if (newFlow && newFlow[0]) {
+          setFlows([newFlow[0]]);
+          currentFlowId = newFlow[0].id;
+          setActiveFlowId(currentFlowId);
+        }
+      }
 
       const { data: txs } = await supabase.from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false });
       if (txs) setTransactions(txs);
@@ -201,9 +246,9 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setView(newView);
     if (newView === 'admin') {
-      window.history.pushState({}, '', '/masteradmin');
+      window.history.pushState({ view: newView }, '', '/masteradmin');
     } else {
-      window.history.pushState({}, '', '/');
+      window.history.pushState({ view: newView }, '', '/');
     }
   };
 
@@ -237,6 +282,7 @@ export default function App() {
     try {
       const dbTx = {
         user_id: user.id,
+        flow_id: activeFlowId,
         type: newTx.type,
         category: newTx.category,
         amount: newTx.amount,
@@ -269,7 +315,7 @@ export default function App() {
           }} />
         )}
 
-        {(view === 'dashboard' || view === 'subs' || view === 'flow' || view === 'admin') && (
+        {(view === 'dashboard' || view === 'subs' || view === 'flow' || view === 'admin' || view === 'profile' || view === 'settings') && (
           <AppShell key="app" activeView={view} onViewChange={navigateTo} user={user}>
             {view === 'dashboard' && (
               <Dashboard
@@ -288,15 +334,45 @@ export default function App() {
             )}
             {view === 'flow' && (
               <MoneyFlow
+                flows={flows}
+                setFlows={setFlows}
+                activeFlowId={activeFlowId || 'all'}
+                setActiveFlowId={setActiveFlowId}
                 transactions={transactions}
                 setTransactions={setTransactions}
                 onOpenAdd={() => setModal({ type: 'transaction', isOpen: true })}
+                user={user}
               />
             )}
-            {view === 'admin' && isAdmin && (
-              <AdminDashboard
-                metrics={adminMetrics}
-                apiLogs={apiLogs}
+            {view === 'admin' && (
+              isAdmin ? (
+                <AdminDashboard
+                  metrics={adminMetrics}
+                  apiLogs={apiLogs}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                  <p className="mono-label text-slate-500 animate-pulse">Checking Authorization Clearance...</p>
+                  <p className="text-xs font-mono text-slate-600">If this persists, ensure your User ID is registered in the master_admins table.</p>
+                </div>
+              )
+            )}
+            {view === 'profile' && (
+              <ProfileView
+                user={user}
+                subscriptions={subscriptions}
+                transactions={transactions}
+                flows={flows}
+              />
+            )}
+            {view === 'settings' && (
+              <SettingsView
+                user={user}
+                flows={flows}
+                setFlows={setFlows}
+                activeFlowId={activeFlowId}
+                setActiveFlowId={setActiveFlowId}
+                setTransactions={setTransactions}
               />
             )}
           </AppShell>
@@ -313,7 +389,12 @@ export default function App() {
                 <SubscriptionForm onSubmit={handleAddSubscription} onCancel={() => setModal({ ...modal, isOpen: false })} />
               )}
               {modal.type === 'transaction' && (
-                <TransactionForm onSubmit={handleAddTransaction} onCancel={() => setModal({ ...modal, isOpen: false })} />
+                <TransactionForm
+                  onSubmit={handleAddTransaction}
+                  onCancel={() => setModal({ ...modal, isOpen: false })}
+                  flows={flows}
+                  activeFlowId={activeFlowId}
+                />
               )}
             </Modal>
           )}
@@ -400,13 +481,13 @@ function SubscriptionForm({ onSubmit, onCancel }) {
         <div className="space-y-2">
           <label className="mono-label !text-[9px]">Billing_Cycle</label>
           <select
-            className="w-full bg-black border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none appearance-none"
+            className="w-full bg-black border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none appearance-none cursor-pointer"
             value={formData.cycle}
             onChange={(e) => setFormData({ ...formData, cycle: e.target.value })}
           >
-            <option>Monthly</option>
-            <option>Annual</option>
-            <option>Usage</option>
+            <option className="bg-[#0a0a0a] text-slate-200">Monthly</option>
+            <option className="bg-[#0a0a0a] text-slate-200">Annual</option>
+            <option className="bg-[#0a0a0a] text-slate-200">Usage</option>
           </select>
         </div>
       </div>
@@ -425,8 +506,13 @@ function SubscriptionForm({ onSubmit, onCancel }) {
 
 // --- Transaction Form ---
 
-function TransactionForm({ onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({ category: '', amount: '', type: 'expense' });
+function TransactionForm({ onSubmit, onCancel, flows = [], activeFlowId }) {
+  const [formData, setFormData] = useState({
+    category: '',
+    amount: '',
+    type: 'expense',
+    flow_id: activeFlowId || (flows.length > 0 ? flows[0].id : null)
+  });
 
   return (
     <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }}>
@@ -473,6 +559,21 @@ function TransactionForm({ onSubmit, onCancel }) {
           </div>
         </div>
       </div>
+
+      {flows.length > 0 && (
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Target_Ledger (Flow)</label>
+          <select
+            className="w-full bg-black border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none appearance-none cursor-pointer"
+            value={formData.flow_id || ''}
+            onChange={(e) => setFormData({ ...formData, flow_id: e.target.value })}
+          >
+            {flows.map(f => (
+              <option key={f.id} value={f.id} className="bg-[#0a0a0a] text-slate-200">{f.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex gap-4 pt-4">
         <button type="submit" className="flex-1 py-4 bg-white text-black font-bold uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-colors">
@@ -1042,7 +1143,7 @@ function AppShell({ children, activeView, onViewChange, user }) {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background-dark relative">
       {/* Top Bar */}
-      <header className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-black/20 backdrop-blur-md z-40">
+      <header className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-black/20 backdrop-blur-md relative z-50">
         <div className="flex items-center gap-4">
           <Wallet className="text-primary w-6 h-6" />
           <h1 className="text-sm font-bold uppercase tracking-widest">SubsTrack</h1>
@@ -1058,23 +1159,26 @@ function AppShell({ children, activeView, onViewChange, user }) {
 
           <AnimatePresence>
             {profileOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="absolute right-0 mt-4 w-56 bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl z-50 p-2"
-              >
-                <div className="p-4 border-b border-white/5">
-                  <p className="text-[10px] mono-label mb-1">Authenticated_As</p>
-                  <p className="font-bold text-sm tracking-tight">{user?.name || 'Authorized User'}</p>
-                </div>
-                <div className="p-2 space-y-1">
-                  <DropdownItem icon={<User className="w-4 h-4" />} label="Profile" />
-                  <DropdownItem icon={<Settings className="w-4 h-4" />} label="Settings" />
-                  <div className="h-px bg-white/5 mx-2 my-1"></div>
-                  <DropdownItem icon={<LogOut className="w-4 h-4 text-red-100/40" />} label="Logout" onClick={() => window.location.reload()} />
-                </div>
-              </motion.div>
+              <>
+                <div className="fixed inset-0 z-40 cursor-default" onClick={() => setProfileOpen(false)}></div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  className="absolute right-0 mt-4 w-56 bg-[#0a0a0a] border border-white/10 shadow-2xl z-50 p-2"
+                >
+                  <div className="p-4 border-b border-white/5">
+                    <p className="text-[10px] mono-label mb-1">Authenticated_As</p>
+                    <p className="font-bold text-sm tracking-tight">{user?.name || 'Authorized User'}</p>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    <DropdownItem icon={<User className="w-4 h-4" />} label="Profile" onClick={() => { onViewChange('profile'); setProfileOpen(false); }} />
+                    <DropdownItem icon={<Settings className="w-4 h-4" />} label="Settings" onClick={() => { onViewChange('settings'); setProfileOpen(false); }} />
+                    <div className="h-px bg-white/5 mx-2 my-1"></div>
+                    <DropdownItem icon={<LogOut className="w-4 h-4 text-red-100/40" />} label="Logout" onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} />
+                  </div>
+                </motion.div>
+              </>
             )}
           </AnimatePresence>
         </div>
@@ -1394,34 +1498,170 @@ function SubscriptionTableCard({ name, domain, cost, cycle, next, highlight }) {
 
 // --- Money Flow View ---
 
-function MoneyFlow({ transactions, setTransactions, onOpenAdd }) {
-  const monthlyIncome = transactions
+function MoneyFlow({ flows, setFlows, activeFlowId, setActiveFlowId, transactions, setTransactions, onOpenAdd, user }) {
+  const [isFlowMenuOpen, setIsFlowMenuOpen] = useState(false);
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('all'); // 'all', 'income', 'expense'
+
+  // If activeFlowId is 'all', we use all transactions. Otherwise, filter by flow_id (or null for legacy)
+  const flowTransactions = activeFlowId === 'all'
+    ? transactions
+    : transactions.filter(t => t.flow_id === activeFlowId || (!t.flow_id && flows.length > 0 && activeFlowId === flows[0].id));
+
+  const filteredTransactions = flowTransactions.filter(t => {
+    if (typeFilter === 'all') return true;
+    if (typeFilter === 'income') return t.type === 'income';
+    if (typeFilter === 'expense') return t.type === 'expense' || t.type === 'subscription';
+    return true;
+  });
+
+  const monthlyIncome = flowTransactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const monthlyExpenses = transactions
+  const monthlyExpenses = flowTransactions
     .filter(t => t.type === 'expense' || t.type === 'subscription')
     .reduce((acc, t) => acc + t.amount, 0);
 
   const netBalance = monthlyIncome - monthlyExpenses;
+  const activeFlow = activeFlowId === 'all' ? { name: 'All Ledgers' } : (flows.find(f => f.id === activeFlowId) || { name: 'Main Ledger' });
+
+  const handleCreateFlow = async () => {
+    const name = window.prompt("Enter new flow name (e.g., Business, Savings):");
+    if (!name || !name.trim() || !user) return;
+    try {
+      const { data, error } = await supabase.from('money_flows').insert([{ user_id: user.id, name: name.trim() }]).select();
+      if (error) throw error;
+      if (data && data[0]) {
+        setFlows([...flows, data[0]]);
+        setActiveFlowId(data[0].id);
+        setIsFlowMenuOpen(false);
+      }
+    } catch (err) { console.error("Error creating flow", err); }
+  };
+
+  const handleDeleteFlow = async () => {
+    if (flows.length <= 1) return alert("System requires at least one flow ledger active.");
+    if (!window.confirm(`[WARNING] Destructive Operation\nDelete flow "${activeFlow.name}" and ALL its entries?`)) return;
+    try {
+      await supabase.from('money_flows').delete().eq('id', activeFlowId);
+      const remaining = flows.filter(f => f.id !== activeFlowId);
+      setFlows(remaining);
+      setActiveFlowId(remaining[0].id);
+      setTransactions(prev => prev.filter(t => t.flow_id !== activeFlowId));
+      setIsOptionsOpen(false);
+    } catch (err) { console.error("Error deleting flow", err); }
+  };
+
+  const handleResetFlow = async () => {
+    if (!window.confirm(`[WARNING] Destructive Operation\nClear ALL transactions from "${activeFlow.name}"?`)) return;
+    try {
+      await supabase.from('transactions').delete().eq('flow_id', activeFlowId);
+      setTransactions(prev => prev.filter(t => t.flow_id !== activeFlowId));
+      setIsOptionsOpen(false);
+    } catch (err) { console.error("Error resetting flow", err); }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="p-8 md:p-12 space-y-12 max-w-[1400px] mx-auto"
+      className="p-8 md:p-12 space-y-12 max-w-[1400px] mx-auto pb-40"
     >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
-        <div className="space-y-1">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 border-b border-white/5 pb-8 relative">
+        <div className="space-y-4">
           <p className="mono-label">Ledger_Sync</p>
-          <h2 className="text-4xl font-bold uppercase tracking-tight">Money Flow</h2>
+
+          <div className="relative">
+            <button
+              onClick={() => { setIsFlowMenuOpen(!isFlowMenuOpen); setIsOptionsOpen(false); }}
+              className="flex items-center gap-4 hover:opacity-75 transition-opacity"
+            >
+              <h2 className="text-4xl font-bold uppercase tracking-tight">{activeFlow.name}</h2>
+              <ChevronRight className={`w-6 h-6 transition-transform ${isFlowMenuOpen ? 'rotate-90' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {isFlowMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 mt-4 w-64 bg-[#0a0a0a] border border-white/10 shadow-2xl z-40 p-2"
+                >
+                  <p className="mono-label !text-[8px] p-2 mb-2 border-b border-white/5 text-primary">Select_Flow_Matrix</p>
+                  <button
+                    onClick={() => { setActiveFlowId('all'); setIsFlowMenuOpen(false); }}
+                    className={`w-full text-left px-3 py-3 text-sm font-bold uppercase tracking-widest transition-colors ${activeFlowId === 'all' ? 'bg-primary/10 text-primary' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                  >
+                    All Ledgers
+                  </button>
+                  <div className="h-px bg-white/5 my-2 mx-2"></div>
+                  {flows.map(f => (
+                    <button
+                      key={f.id}
+                      onClick={() => { setActiveFlowId(f.id); setIsFlowMenuOpen(false); }}
+                      className={`w-full text-left px-3 py-3 text-sm font-bold uppercase tracking-widest transition-colors ${activeFlowId === f.id ? 'bg-primary/10 text-primary' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                  <div className="h-px bg-white/5 my-2 mx-2"></div>
+                  <button
+                    onClick={handleCreateFlow}
+                    className="w-full flex items-center gap-2 px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> Initialize New Flow
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            onClick={handleCreateFlow}
+            className="flex items-center gap-2 px-3 py-2 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <Plus className="w-3 h-3" /> New Flow
+          </button>
         </div>
-        <button
-          onClick={onOpenAdd}
-          className="px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-colors shrink-0"
-        >
-          + Add Transaction
-        </button>
+
+        <div className="flex gap-4 items-center">
+          <div className="relative">
+            <button
+              onClick={() => { setIsOptionsOpen(!isOptionsOpen); setIsFlowMenuOpen(false); }}
+              className="p-4 border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 transition-all h-[52px]"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+
+            <AnimatePresence>
+              {isOptionsOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-2 w-48 bg-[#0a0a0a] border border-red-500/20 shadow-2xl z-40 p-2"
+                >
+                  <p className="mono-label !text-[8px] p-2 text-red-500/70">Flow_Controls</p>
+                  <button onClick={handleResetFlow} className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-widest text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                    Reset Transactions
+                  </button>
+                  <button onClick={handleDeleteFlow} className="w-full text-left px-3 py-2 text-xs font-bold uppercase tracking-widest text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors">
+                    Delete Flow
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            onClick={onOpenAdd}
+            className="px-6 py-4 bg-white text-black text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-colors shrink-0 h-[52px] flex items-center justify-center"
+          >
+            + Add Transaction
+          </button>
+        </div>
       </div>
 
       {/* Summary Banner */}
@@ -1429,7 +1669,20 @@ function MoneyFlow({ transactions, setTransactions, onOpenAdd }) {
         <SummaryBlock label="Total_Income" value={monthlyIncome} color="text-green-400" />
         <SummaryBlock label="Total_Expenses" value={monthlyExpenses} color="text-red-400" />
         <SummaryBlock label="Net_Balance" value={netBalance} highlight />
-        <SummaryBlock label="Liquidity_Status" value="Operational" isStatus />
+        <SummaryBlock label="Liquidity_Status" value={netBalance >= 0 ? "Operational" : "Deficit"} isStatus />
+      </div>
+
+      {/* Filters Banner */}
+      <div className="flex gap-2">
+        {['all', 'income', 'expense'].map(type => (
+          <button
+            key={type}
+            onClick={() => setTypeFilter(type)}
+            className={`px-4 py-2 border font-mono text-[10px] uppercase font-bold tracking-widest transition-colors ${typeFilter === type ? 'bg-white text-black border-white' : 'bg-transparent text-slate-400 border-white/10 hover:bg-white/5'}`}
+          >
+            {type}
+          </button>
+        ))}
       </div>
 
       {/* Transaction List */}
@@ -1440,7 +1693,7 @@ function MoneyFlow({ transactions, setTransactions, onOpenAdd }) {
           <span className="w-32 text-right">Amount</span>
         </div>
         <div className="divide-y divide-white/5 border border-white/5 bg-black/20">
-          {transactions.map(t => (
+          {filteredTransactions.map(t => (
             <div key={t.id} className="flex items-center px-6 py-5 hover:bg-white/[0.02] transition-colors group">
               <div className="flex-1 flex items-center gap-4">
                 <div className={`p-2 rounded ${t.type === 'income' ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-slate-400'}`}>
@@ -1559,14 +1812,253 @@ function AdminMetric({ label, value }) {
 function ControlToggle({ label, active }) {
   const [isOn, setIsOn] = useState(active);
   return (
-    <div className="flex items-center justify-between p-4 border border-white/5 bg-white/[0.02] hover:border-white/20 transition-all">
-      <span className="mono-label !text-[10px]">{label}</span>
-      <button
-        onClick={() => setIsOn(!isOn)}
-        className={`w-10 h-5 rounded-full relative transition-colors ${isOn ? 'bg-primary' : 'bg-white/10'}`}
-      >
-        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isOn ? 'right-1' : 'left-1'}`}></div>
-      </button>
+    <div
+      className={`p-4 border font-mono text-xs cursor-pointer select-none flex justify-between items-center transition-colors
+        ${isOn ? 'border-primary/50 bg-primary/10 text-primary' : 'border-white/10 bg-black/40 text-slate-500 hover:text-white'}
+      `}
+      onClick={() => setIsOn(!isOn)}
+    >
+      <span>{label}</span>
+      <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${isOn ? 'bg-primary' : 'bg-white/10'}`}>
+        <div className={`w-3 h-3 rounded-full bg-white transition-transform ${isOn ? 'translate-x-4' : ''}`}></div>
+      </div>
     </div>
+  );
+}
+
+// --- Profile View ---
+
+function ProfileView({ user, subscriptions, transactions, flows }) {
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState(user?.user_metadata?.full_name || '');
+  const [loading, setLoading] = useState(false);
+  const [nameDisplay, setNameDisplay] = useState(user?.user_metadata?.full_name || 'Authorized User');
+
+  const handleUpdateName = async () => {
+    if (!newName.trim() || newName === nameDisplay) return setEditingName(false);
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: newName }
+      });
+      if (error) throw error;
+      setNameDisplay(newName);
+      setEditingName(false);
+    } catch (err) {
+      console.error("Error updating name:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const accountCreated = user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown_Date';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="p-8 md:p-12 space-y-12 max-w-4xl mx-auto"
+    >
+      <div className="space-y-1">
+        <p className="mono-label">Identity_Module</p>
+        <h2 className="text-4xl font-bold uppercase tracking-tight">System Profile</h2>
+      </div>
+
+      <div className="bg-black/40 border border-white/5 p-8 flex flex-col md:flex-row gap-8 items-start md:items-center relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[80px] rounded-full pointer-events-none"></div>
+
+        <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0 relative z-10">
+          <User className="w-10 h-10 text-slate-400" />
+        </div>
+
+        <div className="flex-1 space-y-4 relative z-10 w-full">
+          <div className="space-y-1">
+            {editingName ? (
+              <div className="flex gap-2 w-full max-w-sm">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="bg-black/50 border border-white/20 px-3 py-1 text-xl font-bold uppercase tracking-tight outline-none focus:border-primary w-full"
+                  autoFocus
+                />
+                <button onClick={handleUpdateName} disabled={loading} className="px-4 bg-white text-black text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 shrink-0">
+                  {loading ? '...' : 'SAVE'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <h3 className="text-3xl font-bold uppercase tracking-tight text-white">{nameDisplay}</h3>
+                <button onClick={() => setEditingName(true)} className="text-[10px] font-bold tracking-widest uppercase text-slate-500 hover:text-white transition-colors">
+                  [EDIT]
+                </button>
+              </div>
+            )}
+            <p className="text-sm font-mono text-slate-400">{user?.email}</p>
+          </div>
+          <div className="flex gap-6 mt-4 pt-4 border-t border-white/5">
+            <div>
+              <p className="mono-label !text-[8px]">Enlistment_Date</p>
+              <p className="text-sm font-mono text-slate-300">{accountCreated}</p>
+            </div>
+            <div>
+              <p className="mono-label !text-[8px]">Security_Status</p>
+              <p className="text-sm font-mono text-green-400 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Verified</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/5 border border-white/5">
+        <div className="p-8 bg-black/40">
+          <p className="mono-label !text-[8px] mb-2">Tracked_Subs</p>
+          <p className="text-3xl font-mono font-bold">{subscriptions.length}</p>
+        </div>
+        <div className="p-8 bg-black/40">
+          <p className="mono-label !text-[8px] mb-2">Ledger_Entries</p>
+          <p className="text-3xl font-mono font-bold">{transactions.length}</p>
+        </div>
+        <div className="p-8 bg-black/40">
+          <p className="mono-label !text-[8px] mb-2">Active_Flows</p>
+          <p className="text-3xl font-mono font-bold">{flows?.length || 0}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- Settings View ---
+
+function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, setTransactions }) {
+  const [currency, setCurrency] = useState('₹');
+  const [cycle, setCycle] = useState('Monthly');
+
+  const handleCreateFlow = async () => {
+    const name = window.prompt("Enter new ledger name (e.g., Savings, Personal, Business):");
+    if (!name || !name.trim() || !user) return;
+    try {
+      const { data, error } = await supabase.from('money_flows').insert([{ user_id: user.id, name: name.trim() }]).select();
+      if (error) throw error;
+      if (data && data[0]) {
+        setFlows([...flows, data[0]]);
+        setActiveFlowId(data[0].id);
+      }
+    } catch (err) { console.error("Error creating flow", err); }
+  };
+
+  const handleDeleteFlow = async (flowId, flowName) => {
+    if (flows.length <= 1) return alert("System requires at least one active ledger.");
+    if (!window.confirm(`[WARNING] Destructive Operation\nDelete ledger "${flowName}" and ALL its transactions?`)) return;
+    try {
+      await supabase.from('money_flows').delete().eq('id', flowId);
+      const remaining = flows.filter(f => f.id !== flowId);
+      setFlows(remaining);
+      if (activeFlowId === flowId) setActiveFlowId(remaining[0].id);
+      setTransactions(prev => prev.filter(t => t.flow_id !== flowId));
+    } catch (err) { console.error("Error deleting flow", err); }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="p-8 md:p-12 space-y-12 max-w-4xl mx-auto"
+    >
+      <div className="space-y-1">
+        <p className="mono-label">System_Preferences</p>
+        <h2 className="text-4xl font-bold uppercase tracking-tight">Settings</h2>
+      </div>
+
+      <div className="space-y-8">
+        {/* General Settings */}
+        <div className="space-y-4">
+          <h3 className="mono-label !text-primary border-b border-white/5 pb-2">General_Configuration</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-black/40 border border-white/5 p-6">
+              <p className="mono-label !text-[10px] mb-4">Base_Currency</p>
+              <div className="flex bg-white/5 rounded p-1 font-mono text-sm max-w-[200px]">
+                {['₹', '$', '€'].map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setCurrency(c)}
+                    className={`flex-1 py-2 text-center rounded transition-colors ${currency === c ? 'bg-primary text-black font-bold' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="bg-black/40 border border-white/5 p-6">
+              <p className="mono-label !text-[10px] mb-4">Default_Billing_Cycle</p>
+              <select
+                value={cycle}
+                onChange={(e) => setCycle(e.target.value)}
+                className="w-full bg-black border border-white/10 p-3 font-mono text-sm focus:border-primary outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
+              >
+                <option value="Monthly" className="bg-[#0a0a0a] text-slate-200">Monthly</option>
+                <option value="Yearly" className="bg-[#0a0a0a] text-slate-200">Yearly</option>
+                <option value="Weekly" className="bg-[#0a0a0a] text-slate-200">Weekly</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Ledger Management */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <h3 className="mono-label !text-primary">Ledger_Configuration</h3>
+            <button onClick={handleCreateFlow} className="text-[10px] uppercase font-bold tracking-widest text-slate-400 hover:text-white transition-colors flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add Ledger
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {flows.map(f => (
+              <div key={f.id} className="bg-black/40 border border-white/5 p-4 flex justify-between items-center group">
+                <div>
+                  <p className="font-bold uppercase tracking-widest text-sm">{f.name}</p>
+                  <p className="mono-label !text-[8px] text-slate-500 mt-1">ID: {f.id.split('-')[0]}</p>
+                </div>
+                <button
+                  onClick={() => handleDeleteFlow(f.id, f.name)}
+                  className="p-2 text-red-500/50 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete Ledger"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Notifications */}
+        <div className="space-y-4">
+          <h3 className="mono-label !text-primary border-b border-white/5 pb-2">Notification_Protocols</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ControlToggle label="Renewal_Reminders" active={true} />
+            <ControlToggle label="Monthly_Spending_Summary" active={true} />
+            <ControlToggle label="Financial_Insights" active={false} />
+          </div>
+        </div>
+
+        {/* Appearance */}
+        <div className="space-y-4">
+          <h3 className="mono-label !text-primary border-b border-white/5 pb-2">Interface_Appearance</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ControlToggle label="Dark_Mode_Forced" active={true} />
+            <ControlToggle label="Compact_Ledger_Layout" active={false} />
+          </div>
+        </div>
+
+        {/* Data Management */}
+        <div className="space-y-4 pt-8">
+          <h3 className="mono-label text-red-400 border-b border-red-500/20 pb-2">Data_Management</h3>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button className="px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+              <ExternalLink className="w-4 h-4" /> Export User Data (CSV)
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
