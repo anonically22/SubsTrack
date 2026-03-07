@@ -114,6 +114,72 @@ function AnimatedNumber({ value, prefix = "₹", suffix = "" }) {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <motion.div
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.8, ease: "easeInOut" }}
+      className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center overflow-hidden"
+    >
+      <div className="relative flex items-center justify-center">
+        {/* Animated Wallet Icon */}
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{
+            duration: 1.2,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+        >
+          <Wallet className="w-16 h-16 text-primary z-10 relative" />
+        </motion.div>
+
+        {/* Pulsing Background Ring */}
+        <motion.div
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [0.1, 0.3, 0.1]
+          }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute w-32 h-32 rounded-full border border-primary/30"
+        />
+      </div>
+
+      {/* Brand Name Reveal */}
+      <div className="mt-8 overflow-hidden h-8 flex items-center">
+        <motion.span
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{
+            delay: 0.6,
+            duration: 1.2,
+            ease: [0.16, 1, 0.3, 1]
+          }}
+          className="text-2xl font-bold uppercase tracking-[0.4em] text-white ml-[0.4em]"
+        >
+          SubsTrack
+        </motion.span>
+      </div>
+
+      {/* Loading Bar Progress (Simulated Scanning) */}
+      <div className="mt-12 w-48 h-[1px] bg-white/5 relative overflow-hidden">
+        <motion.div
+          animate={{ x: ['-100%', '100%'] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="absolute top-0 left-0 w-full h-full bg-primary/40 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+        />
+      </div>
+
+      <p className="mt-6 mono-label !text-[8px] animate-pulse">Initializing_Control_Center...</p>
+    </motion.div>
+  );
+}
+
 function SectionReveal({ children, className = "" }) {
   return (
     <motion.div
@@ -162,7 +228,8 @@ export default function App() {
         checkAdminStatus(session.user.id);
         fetchUserData(session.user.id);
       } else {
-        setLoadingInitial(false);
+        // Add a small artificial delay so the splash screen isn't just a flash
+        setTimeout(() => setLoadingInitial(false), 2000);
       }
     });
 
@@ -252,7 +319,8 @@ export default function App() {
     } catch (e) {
       console.error("Error fetching data:", e);
     } finally {
-      setLoadingInitial(false);
+      // Ensure the splash screen shows for a meaningful duration
+      setTimeout(() => setLoadingInitial(false), 2000);
     }
   };
 
@@ -340,116 +408,130 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background-dark text-slate-100 font-sans selection:bg-primary/30">
-      <AnimatePresence mode="wait">
-        {view === 'landing' && (
-          <LandingView key="landing" onStart={() => navigateTo('auth')} />
-        )}
+    <AnimatePresence mode="wait">
+      {loadingInitial ? (
+        <LoadingScreen key="loading" />
+      ) : (
+        <motion.div
+          key="content"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className={`min-h-screen transition-colors duration-500 ${theme === 'light' ? 'bg-[#f8f9fa] text-slate-900' : 'bg-[#050505] text-white'}`}
+          data-theme={theme || 'dark'}
+        >
+          <AnimatePresence mode="wait">
+            {view === 'landing' && (
+              <LandingView key="landing" onStart={() => navigateTo('auth')} />
+            )}
 
-        {view === 'auth' && (
-          <AuthScreen key="auth" onLogin={() => {
-            // State listener handles user setting, just navigate
-            navigateTo('dashboard');
-          }} />
-        )}
+            {view === 'auth' && (
+              <AuthScreen key="auth" onLogin={() => {
+                // State listener handles user setting, just navigate
+                navigateTo('dashboard');
+              }} />
+            )}
 
-        {(view === 'dashboard' || view === 'subs' || view === 'flow' || view === 'admin' || view === 'profile' || view === 'settings') && (
-          <AppShell key="app" activeView={view} onViewChange={navigateTo} user={user}>
-            {view === 'dashboard' && (
-              <Dashboard
-                subscriptions={subscriptions}
-                transactions={transactions}
-                onAddSub={() => setModal({ type: 'subscription', isOpen: true })}
-                onAddFlow={() => setModal({ type: 'transaction', isOpen: true })}
-                onViewChange={navigateTo}
-              />
-            )}
-            {view === 'subs' && (
-              <SubscriptionManager
-                subscriptions={subscriptions}
-                setSubscriptions={setSubscriptions}
-                onOpenAdd={() => setModal({ type: 'subscription', isOpen: true, data: null })}
-                onEditSub={(sub) => setModal({ type: 'subscription', isOpen: true, data: sub })}
-              />
-            )}
-            {view === 'flow' && (
-              <MoneyFlow
-                flows={flows}
-                setFlows={setFlows}
-                activeFlowId={activeFlowId || 'all'}
-                setActiveFlowId={setActiveFlowId}
-                transactions={transactions}
-                setTransactions={setTransactions}
-                onOpenAdd={() => setModal({ type: 'transaction', isOpen: true })}
-                user={user}
-              />
-            )}
-            {view === 'admin' && (
-              isAdmin ? (
-                <AdminDashboard
-                  metrics={adminMetrics}
-                  apiLogs={apiLogs}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center py-32 space-y-4">
-                  <p className="mono-label text-slate-500 animate-pulse">Checking Authorization Clearance...</p>
-                  <p className="text-xs font-mono text-slate-600">If this persists, ensure your User ID is registered in the master_admins table.</p>
-                </div>
-              )
-            )}
-            {view === 'profile' && (
-              <ProfileView
-                user={user}
-                subscriptions={subscriptions}
-                transactions={transactions}
-                flows={flows}
-              />
-            )}
-            {view === 'settings' && (
-              <SettingsView
-                user={user}
-                flows={flows}
-                setFlows={setFlows}
-                activeFlowId={activeFlowId}
-                setActiveFlowId={setActiveFlowId}
-                setTransactions={setTransactions}
-                theme={theme}
-                setTheme={setTheme}
-              />
-            )}
-          </AppShell>
-        )}
+            {(view === 'dashboard' || view === 'subs' || view === 'flow' || view === 'admin' || view === 'profile' || view === 'settings') && (
+              <AppShell key="app" activeView={view} onViewChange={navigateTo} user={user}>
+                {view === 'dashboard' && (
+                  <Dashboard
+                    subscriptions={subscriptions}
+                    transactions={transactions}
+                    onAddSub={() => setModal({ type: 'subscription', isOpen: true })}
+                    onAddFlow={() => setModal({ type: 'transaction', isOpen: true })}
+                    onViewChange={navigateTo}
+                  />
+                )}
+                {view === 'subs' && (
+                  <SubscriptionManager
+                    subscriptions={subscriptions}
+                    setSubscriptions={setSubscriptions}
+                    onOpenAdd={() => setModal({ type: 'subscription', isOpen: true, data: null })}
+                    onEditSub={(sub) => setModal({ type: 'subscription', isOpen: true, data: sub })}
+                  />
+                )}
+                {view === 'flow' && (
+                  <MoneyFlow
+                    flows={flows}
+                    setFlows={setFlows}
+                    activeFlowId={activeFlowId || 'all'}
+                    setActiveFlowId={setActiveFlowId}
+                    transactions={transactions}
+                    setTransactions={setTransactions}
+                    onOpenAdd={() => setModal({ type: 'transaction', isOpen: true })}
+                    user={user}
+                  />
+                )}
+                {view === 'admin' && (
+                  isAdmin ? (
+                    <AdminDashboard
+                      metrics={adminMetrics}
+                      apiLogs={apiLogs}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                      <p className="mono-label text-slate-500 animate-pulse">Checking Authorization Clearance...</p>
+                      <p className="text-xs font-mono text-slate-600">If this persists, ensure your User ID is registered in the master_admins table.</p>
+                    </div>
+                  )
+                )}
+                {view === 'profile' && (
+                  <ProfileView
+                    user={user}
+                    subscriptions={subscriptions}
+                    transactions={transactions}
+                    flows={flows}
+                  />
+                )}
+                {view === 'settings' && (
+                  <SettingsView
+                    user={user}
+                    flows={flows}
+                    setFlows={setFlows}
+                    activeFlowId={activeFlowId}
+                    setActiveFlowId={setActiveFlowId}
+                    setTransactions={setTransactions}
+                    theme={theme}
+                    setTheme={setTheme}
+                  />
+                )}
 
-        {/* Modals Container */}
-        <AnimatePresence>
-          {modal.isOpen && (
-            <Modal
-              onClose={() => setModal({ ...modal, isOpen: false })}
-              title={modal.type === 'subscription' ? 'Register New Subscription' : 'New Transaction Node'}
-            >
-              {modal.type === 'subscription' && (
-                <SubscriptionForm
-                  onSubmit={handleAddSubscription}
-                  onDelete={handleDeleteSubscription}
-                  onCancel={() => setModal({ type: null, isOpen: false, data: null })}
-                  initialData={modal.data}
-                  flows={flows}
-                  activeFlowId={activeFlowId}
-                />
-              )}
-              {modal.type === 'transaction' && (
-                <TransactionForm
-                  onSubmit={handleAddTransaction}
-                  onCancel={() => setModal({ ...modal, isOpen: false })}
-                  flows={flows}
-                  activeFlowId={activeFlowId}
-                />
-              )}
-            </Modal>
-          )}
-        </AnimatePresence>
-      </AnimatePresence>
-    </div>
+                <Footer />
+              </AppShell>
+            )}
+          </AnimatePresence>
+
+          {/* Modals Container */}
+          <AnimatePresence>
+            {modal.isOpen && (
+              <Modal
+                onClose={() => setModal({ ...modal, isOpen: false })}
+                title={modal.type === 'subscription' ? 'Register New Subscription' : 'New Transaction Node'}
+              >
+                {modal.type === 'subscription' && (
+                  <SubscriptionForm
+                    onSubmit={handleAddSubscription}
+                    onDelete={handleDeleteSubscription}
+                    onCancel={() => setModal({ type: null, isOpen: false, data: null })}
+                    initialData={modal.data}
+                    flows={flows}
+                    activeFlowId={activeFlowId}
+                  />
+                )}
+                {modal.type === 'transaction' && (
+                  <TransactionForm
+                    onSubmit={handleAddTransaction}
+                    onCancel={() => setModal({ ...modal, isOpen: false })}
+                    flows={flows}
+                    activeFlowId={activeFlowId}
+                  />
+                )}
+              </Modal>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -2202,7 +2284,7 @@ function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, se
 
           <div className="bg-black/40 border border-white/5 p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="font-mono text-[11px] font-bold text-slate-300 uppercase tracking-widest">Protocol Evolution v1.2.4</p>
+              <p className="font-mono text-[11px] font-bold text-slate-300 uppercase tracking-widest">Protocol Evolution v1.3.0</p>
               <p className="text-[10px] font-mono text-slate-500">2026-03-07</p>
             </div>
 
@@ -2217,12 +2299,12 @@ function SettingsView({ user, flows, setFlows, activeFlowId, setActiveFlowId, se
                   <div className="space-y-3">
                     <p className="text-[10px] mono-label text-slate-500">_Recent_Updates</p>
                     <ul className="space-y-2 text-[11px] font-mono text-slate-400">
-                      <li>• [FEATURE] Integrated multi-mode theme engine (Light/Dark Switch).</li>
-                      <li>• [FEATURE] Deployed global navigational footer with system telemetry.</li>
-                      <li>• [OPTIMIZATION] Reconfigured Vite rollup layers for modular chunk distribution.</li>
+                      <li>• [FEATURE] Implemented Universal System Loader with wallet animation.</li>
+                      <li>• [FEATURE] Deployed PWA manifest & mobile home-screen integration.</li>
+                      <li>• [THEME] Integrated multi-mode theme engine (Light/Dark Switch).</li>
                       <li>• [MOBILE] Optimized responsive grid layers for vertical viewports.</li>
-                      <li>• [FIX] Resolved Subscription_Cost aggregation logic across hidden protocols.</li>
-                      <li>• [FIX] Rectified gear icon interaction on individual fleet cards.</li>
+                      <li>• [UI] Implemented global navigational footer with system telemetry.</li>
+                      <li>• [OPTIMIZATION] Reconfigured Vite rollup layers for modular chunk distribution.</li>
                     </ul>
                   </div>
                 </motion.div>
@@ -2296,7 +2378,7 @@ function Footer() {
         <div className="flex flex-wrap items-center justify-center gap-6">
           <div className="flex items-center gap-2">
             <div className="w-1 h-1 rounded-full bg-primary/40"></div>
-            <p className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">Build_Rev 1.2.4</p>
+            <p className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">Build_Rev 1.3.0</p>
           </div>
           <div className="h-4 w-px bg-white/10 hidden md:block"></div>
           <button
