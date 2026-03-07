@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Noto+Sans+Mono:wght@100..900&family=Noto+Serif+Display:ital,wght@0,100..900;1,100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --grid-line: rgba(255, 255, 255, 0.07);
+}
+
+body {
+  margin: 0;
+  background-color: #0e0e0e;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 80px 80px;
+  color: #f1f5f9;
+  /* slate-100 */
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mono-label {
+  @apply font-mono text-[10px] tracking-[0.2em] uppercase text-slate-400 font-bold;
+}
+
+.serif-display {
+  font-family: 'Noto Serif Display', serif;
+}
+
+.mono-number {
+  font-family: 'Noto Sans Mono', monospace;
+}
+
+/* Custom animations */
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.selection\:bg-primary\/30 *::selection {
+  background-color: rgba(51, 125, 230, 0.3);
+}
