@@ -27,3 +27,9 @@ Stitch/
 .env
 .env.local
 supabase.md
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
