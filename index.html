@@ -1,13 +1,29 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SubsTrack </title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SubsTrack </title>
+</head>
+
+<body>
+  <div id="error-display"
+    style="color: red; position: fixed; z-index: 9999; background: white; padding: 10px; display: none; font-family: monospace;">
+  </div>
+  <script>
+    window.onerror = function (msg, src, line, col, err) {
+      document.getElementById('error-display').style.display = 'block';
+      document.getElementById('error-display').innerText += '\n' + msg;
+    };
+    window.addEventListener('unhandledrejection', function (event) {
+      document.getElementById('error-display').style.display = 'block';
+      document.getElementById('error-display').innerText += '\n' + event.reason;
+    });
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

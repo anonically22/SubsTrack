@@ -155,12 +155,18 @@ export default function App() {
       if (session?.user) {
         checkAdminStatus(session.user.id);
         fetchUserData(session.user.id);
+        if (window.location.pathname === '/masteradmin') {
+          setView('admin');
+        } else if (view === 'landing' || view === 'auth') {
+          setView('dashboard');
+        }
       } else {
         setIsAdmin(false);
         setSubscriptions([]);
         setTransactions([]);
         if (view !== 'landing' && view !== 'auth') {
           setView('landing');
+          window.history.pushState({}, '', '/');
         }
       }
     });
@@ -194,6 +200,11 @@ export default function App() {
   const navigateTo = (newView) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setView(newView);
+    if (newView === 'admin') {
+      window.history.pushState({}, '', '/masteradmin');
+    } else {
+      window.history.pushState({}, '', '/');
+    }
   };
 
   const handleAddSubscription = async (newSub) => {
@@ -282,7 +293,7 @@ export default function App() {
                 onOpenAdd={() => setModal({ type: 'transaction', isOpen: true })}
               />
             )}
-            {view === 'admin' && (
+            {view === 'admin' && isAdmin && (
               <AdminDashboard
                 metrics={adminMetrics}
                 apiLogs={apiLogs}
@@ -1059,7 +1070,6 @@ function AppShell({ children, activeView, onViewChange, user }) {
                 </div>
                 <div className="p-2 space-y-1">
                   <DropdownItem icon={<User className="w-4 h-4" />} label="Profile" />
-                  <DropdownItem icon={<BarChart3 className="w-4 h-4 text-primary" />} label="Admin Monitor" onClick={() => { onViewChange('admin'); setProfileOpen(false); }} />
                   <DropdownItem icon={<Settings className="w-4 h-4" />} label="Settings" />
                   <div className="h-px bg-white/5 mx-2 my-1"></div>
                   <DropdownItem icon={<LogOut className="w-4 h-4 text-red-100/40" />} label="Logout" onClick={() => window.location.reload()} />
@@ -1076,25 +1086,25 @@ function AppShell({ children, activeView, onViewChange, user }) {
       </main>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 md:bottom-8 md:left-1/2 md:-translate-x-1/2 z-50 px-4 pb-4 md:pb-0">
-        <nav className="flex items-center justify-around md:justify-start bg-black/80 backdrop-blur-2xl border border-white/10 rounded-2xl md:rounded-full p-2 gap-2 shadow-2xl max-w-md mx-auto md:mx-0">
+      <div className="fixed bottom-6 w-full flex justify-center z-50 px-4 pointer-events-none">
+        <nav className="flex items-center bg-[#0a0a0a] border border-white/10 rounded-full p-2 gap-1 shadow-2xl pointer-events-auto">
           <NavButton
             active={activeView === 'dashboard'}
             onClick={() => onViewChange('dashboard')}
-            icon={<Home className="w-5 h-5" />}
-            label="Home"
+            icon={<Home className="w-[18px] h-[18px]" />}
+            label="HOME"
           />
           <NavButton
             active={activeView === 'subs'}
             onClick={() => onViewChange('subs')}
-            icon={<LayoutGrid className="w-5 h-5" />}
-            label="Subs"
+            icon={<LayoutGrid className="w-[18px] h-[18px]" />}
+            label="SUBS"
           />
           <NavButton
             active={activeView === 'flow'}
             onClick={() => onViewChange('flow')}
-            icon={<History className="w-5 h-5" />}
-            label="Flow"
+            icon={<History className="w-[18px] h-[18px]" />}
+            label="FLOW"
           />
         </nav>
       </div>
@@ -1118,8 +1128,8 @@ function NavButton({ active, onClick, icon, label }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-6 py-3 rounded-full transition-all text-xs font-bold uppercase tracking-widest
-        ${active ? 'bg-white text-black shrink-0' : 'text-slate-400 hover:text-white hover:bg-white/5'}
+      className={`flex items-center gap-2 px-5 py-2.5 rounded-full transition-all text-[11px] font-bold uppercase tracking-wider
+        ${active ? 'bg-white text-black shrink-0 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5'}
       `}
     >
       {icon}
@@ -1540,7 +1550,7 @@ function AdminMetric({ label, value }) {
     <div className="p-6 bg-black/40">
       <p className="mono-label !text-[8px] mb-2">{label}</p>
       <p className="text-2xl font-mono font-bold text-white tracking-tighter">
-        {value.toLocaleString()}
+        {(value || 0).toLocaleString()}
       </p>
     </div>
   );
