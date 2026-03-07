@@ -38,7 +38,8 @@ const BRANDFETCH_CLIENT_ID = import.meta.env.VITE_BRANDFETCH_CLIENT_ID || 'your_
 
 const getBrandLogo = (domain) => {
   if (!domain) return null;
-  return `https://cdn.brandfetch.io/${domain}?c=${BRANDFETCH_CLIENT_ID}`;
+  // Fallback to clearbit for reliable logos without API keys
+  return `https://logo.clearbit.com/${domain}`;
 };
 
 // --- Mock Data ---
@@ -101,8 +102,14 @@ function AnimatedNumber({ value, prefix = "₹", suffix = "" }) {
 
   return (
     <span className="font-mono">
-      {prefix}{new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0 }).format(Math.floor(displayValue))}
-      {suffix}
+      {typeof value === 'number' ? (
+        <>
+          {prefix}{new Intl.NumberFormat('en-IN', { minimumFractionDigits: 0 }).format(Math.floor(displayValue))}
+          {suffix}
+        </>
+      ) : (
+        <span>{value}</span>
+      )}
     </span>
   );
 }
@@ -137,8 +144,8 @@ export default function App() {
   const [apiLogs, setApiLogs] = useState([]);
   const [adminMetrics, setAdminMetrics] = useState({ totalUsers: 0, activeSessions: 0, apiCallsToday: 0, totalSubscriptions: 0, totalTransactions: 0 });
 
-  // Modal State
-  const [modal, setModal] = useState({ type: null, isOpen: false });
+  // Modal State { type: string, isOpen: boolean, data?: any }
+  const [modal, setModal] = useState({ type: null, isOpen: false, data: null });
 
   // Supabase Auth and Data Fetching
   useEffect(() => {
@@ -252,28 +259,52 @@ export default function App() {
     }
   };
 
-  const handleAddSubscription = async (newSub) => {
+  const handleAddSubscription = async (subData) => {
     if (!user) return;
     try {
       const dbSub = {
-        user_id: user.id,
-        name: newSub.name,
-        domain: newSub.domain,
-        cost: newSub.cost,
-        cycle: newSub.cycle,
-        category: newSub.category || 'Software',
-        next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Dummy 30 days from now
+        name: subData.name,
+        domain: subData.domain,
+        cost: subData.cost,
+        cycle: subData.cycle,
+        category: subData.category || 'Software',
+        hide_cost: subData.hide_cost || false,
+        flow_id: subData.flow_id || null,
+        is_free_trial: subData.is_free_trial || false,
+        trial_end_date: subData.trial_end_date || null
       };
-      const { data, error } = await supabase.from('subscriptions').insert([dbSub]).select();
-      if (error) throw error;
-      if (data && data[0]) {
-        setSubscriptions([data[0], ...subscriptions]);
-        setApiLogs([{ id: Date.now(), endpoint: '/api/v1/subs/create', requests: 1, avgTime: '145ms', lastCall: 'Just now', status: 201 }, ...apiLogs]);
+
+      if (subData.id) {
+        // Edit existing
+        const { error } = await supabase.from('subscriptions').update(dbSub).eq('id', subData.id);
+        if (error) throw error;
+        setSubscriptions(prev => prev.map(s => s.id === subData.id ? { ...s, ...dbSub } : s));
+      } else {
+        // Create new
+        dbSub.user_id = user.id;
+        dbSub.next_billing_date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Dummy 30 days
+        const { data, error } = await supabase.from('subscriptions').insert([dbSub]).select();
+        if (error) throw error;
+        if (data && data[0]) {
+          setSubscriptions([data[0], ...subscriptions]);
+        }
       }
     } catch (e) {
-      console.error("Error adding subscription:", e);
+      console.error("Error saving subscription:", e);
     } finally {
-      setModal({ type: null, isOpen: false });
+      setModal({ type: null, isOpen: false, data: null });
+    }
+  };
+
+  const handleDeleteSubscription = async (id) => {
+    if (!window.confirm("Are you sure you want to terminate this subscription node?")) return;
+    try {
+      const { error } = await supabase.from('subscriptions').delete().eq('id', id);
+      if (error) throw error;
+      setSubscriptions(prev => prev.filter(s => s.id !== id));
+      setModal({ type: null, isOpen: false, data: null });
+    } catch (e) {
+      console.error("Error deleting subscription:", e);
     }
   };
 
@@ -323,13 +354,15 @@ export default function App() {
                 transactions={transactions}
                 onAddSub={() => setModal({ type: 'subscription', isOpen: true })}
                 onAddFlow={() => setModal({ type: 'transaction', isOpen: true })}
+                onViewChange={navigateTo}
               />
             )}
             {view === 'subs' && (
               <SubscriptionManager
                 subscriptions={subscriptions}
                 setSubscriptions={setSubscriptions}
-                onOpenAdd={() => setModal({ type: 'subscription', isOpen: true })}
+                onOpenAdd={() => setModal({ type: 'subscription', isOpen: true, data: null })}
+                onEditSub={(sub) => setModal({ type: 'subscription', isOpen: true, data: sub })}
               />
             )}
             {view === 'flow' && (
@@ -386,7 +419,14 @@ export default function App() {
               title={modal.type === 'subscription' ? 'Register New Subscription' : 'New Transaction Node'}
             >
               {modal.type === 'subscription' && (
-                <SubscriptionForm onSubmit={handleAddSubscription} onCancel={() => setModal({ ...modal, isOpen: false })} />
+                <SubscriptionForm
+                  onSubmit={handleAddSubscription}
+                  onDelete={handleDeleteSubscription}
+                  onCancel={() => setModal({ type: null, isOpen: false, data: null })}
+                  initialData={modal.data}
+                  flows={flows}
+                  activeFlowId={activeFlowId}
+                />
               )}
               {modal.type === 'transaction' && (
                 <TransactionForm
@@ -438,8 +478,12 @@ function Modal({ onClose, title, children }) {
 
 // --- Subscription Form ---
 
-function SubscriptionForm({ onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({ name: '', domain: '', cost: '', cycle: 'Monthly', category: 'Software' });
+function SubscriptionForm({ onSubmit, onCancel, initialData, flows = [], activeFlowId }) {
+  const [formData, setFormData] = useState(initialData || {
+    name: '', domain: '', cost: '', cycle: 'Monthly', category: 'Software',
+    hide_cost: false, flow_id: activeFlowId || (flows.length > 0 ? flows[0].id : null),
+    is_free_trial: false, trial_end_date: ''
+  });
 
   return (
     <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }}>
@@ -492,10 +536,71 @@ function SubscriptionForm({ onSubmit, onCancel }) {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="hide_cost"
+              checked={formData.hide_cost}
+              onChange={(e) => setFormData({ ...formData, hide_cost: e.target.checked })}
+              className="accent-primary"
+            />
+            <label htmlFor="hide_cost" className="mono-label !text-[9px] cursor-pointer">Hide_Cost_On_Dashboard</label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="is_free_trial"
+              checked={formData.is_free_trial}
+              onChange={(e) => setFormData({ ...formData, is_free_trial: e.target.checked })}
+              className="accent-primary"
+            />
+            <label htmlFor="is_free_trial" className="mono-label !text-[9px] cursor-pointer">Active_Free_Trial</label>
+          </div>
+        </div>
+
+        {formData.is_free_trial && (
+          <div className="space-y-2">
+            <label className="mono-label !text-[9px]">Trial_End_Date</label>
+            <input
+              type="date"
+              className="w-full bg-white/5 border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none"
+              value={formData.trial_end_date || ''}
+              onChange={(e) => setFormData({ ...formData, trial_end_date: e.target.value })}
+            />
+          </div>
+        )}
+      </div>
+
+      {flows.length > 0 && (
+        <div className="space-y-2">
+          <label className="mono-label !text-[9px]">Source_Ledger (Flow)</label>
+          <select
+            className="w-full bg-black border border-white/10 p-4 font-mono text-sm focus:border-primary outline-none appearance-none cursor-pointer"
+            value={formData.flow_id || ''}
+            onChange={(e) => setFormData({ ...formData, flow_id: e.target.value })}
+          >
+            {flows.map(f => (
+              <option key={f.id} value={f.id} className="bg-[#0a0a0a] text-slate-200">{f.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="flex gap-4 pt-4">
         <button type="submit" className="flex-1 py-4 bg-white text-black font-bold uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-colors">
-          Establish Subscription
+          {formData.id ? 'Save Changes' : 'Establish Subscription'}
         </button>
+        {formData.id && (
+          <button
+            type="button"
+            onClick={() => onDelete(formData.id)}
+            className="px-6 py-4 border border-red-500/20 text-red-500 font-bold uppercase tracking-widest text-[10px] hover:bg-red-500/10 transition-colors"
+          >
+            Delete
+          </button>
+        )}
         <button type="button" onClick={onCancel} className="px-8 py-4 border border-white/10 text-white font-bold uppercase tracking-widest text-[10px] hover:bg-white/5 transition-colors">
           Cancel
         </button>
@@ -1244,7 +1349,7 @@ function NavButton({ active, onClick, icon, label }) {
 
 // --- Dashboard View ---
 
-function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow }) {
+function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow, onViewChange }) {
   const monthlyIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((acc, t) => acc + t.amount, 0);
@@ -1253,7 +1358,9 @@ function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow }) {
     .filter(t => t.type === 'expense')
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const subTotal = subscriptions.reduce((acc, s) => acc + s.cost, 0);
+  const subTotal = subscriptions
+    .filter(s => !s.hide_cost && !s.is_free_trial)
+    .reduce((acc, s) => acc + (s.cost || 0), 0);
   const remaining = monthlyIncome - monthlyExpenses - subTotal;
 
   return (
@@ -1277,7 +1384,7 @@ function Dashboard({ subscriptions, transactions, onAddSub, onAddFlow }) {
             <p className="mono-label">Timeline</p>
             <h3 className="text-2xl font-bold uppercase tracking-tight">Upcoming Renewals</h3>
           </div>
-          <button className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">View Calendar</button>
+          <button onClick={() => onViewChange('subs')} className="text-[10px] font-bold uppercase tracking-widest text-primary hover:underline">View Calendar</button>
         </div>
 
         <div className="flex flex-nowrap gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
@@ -1395,7 +1502,7 @@ function ActionButton({ icon, label, color, onClick }) {
 
 // --- Subscription Manager View ---
 
-function SubscriptionManager({ subscriptions, setSubscriptions, onOpenAdd }) {
+function SubscriptionManager({ subscriptions, setSubscriptions, onOpenAdd, onEditSub }) {
   const [search, setSearch] = useState('');
 
   const filteredSubs = subscriptions.filter(s =>
@@ -1441,10 +1548,11 @@ function SubscriptionManager({ subscriptions, setSubscriptions, onOpenAdd }) {
             key={sub.id}
             name={sub.name}
             domain={sub.domain}
-            cost={sub.cost}
+            cost={sub.hide_cost ? "••••" : (sub.is_free_trial ? "FREE" : sub.cost)}
             cycle={sub.cycle}
-            next={sub.next}
+            next={sub.is_free_trial ? (sub.trial_end_date ? `Trial ends ${sub.trial_end_date}` : 'Trial Active') : sub.next}
             highlight={sub.highlight}
+            onEdit={() => onEditSub(sub)}
           />
         ))}
       </div>
@@ -1452,7 +1560,7 @@ function SubscriptionManager({ subscriptions, setSubscriptions, onOpenAdd }) {
   );
 }
 
-function SubscriptionTableCard({ name, domain, cost, cycle, next, highlight }) {
+function SubscriptionTableCard({ name, domain, cost, cycle, next, highlight, onEdit }) {
   const logoUrl = getBrandLogo(domain);
   return (
     <div className={`p-8 bg-background-dark hover:bg-white/[0.03] transition-all group flex flex-col gap-8 relative overflow-hidden ${highlight ? 'bg-primary/5' : ''}`}>
@@ -1473,7 +1581,7 @@ function SubscriptionTableCard({ name, domain, cost, cycle, next, highlight }) {
           </div>
           <h3 className="font-bold text-lg tracking-tight lowercase">{name}</h3>
         </div>
-        <button className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={onEdit} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white/5 rounded">
           <Settings className="w-4 h-4 text-slate-500 hover:text-white" />
         </button>
       </div>
@@ -1487,7 +1595,7 @@ function SubscriptionTableCard({ name, domain, cost, cycle, next, highlight }) {
         </div>
       </div>
 
-      <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors group-hover:translate-x-1 transition-transform">
+      <button onClick={onEdit} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors group-hover:translate-x-1 transition-transform">
         Modify_Protocol <ChevronRight className="w-3 h-3" />
       </button>
 
