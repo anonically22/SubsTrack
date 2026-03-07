@@ -30,3 +30,9 @@ supabase.md
 .env
 .env.*
 admin_setup_guide.md
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
