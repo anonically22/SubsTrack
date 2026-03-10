@@ -32,3 +32,9 @@ supabase.md
 admin_setup_guide.md
 disable_email_confirmation.md
 db_updates.md
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
