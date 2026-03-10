@@ -2356,7 +2356,7 @@ function Footer() {
 
       <div className="max-w-[1400px] mx-auto pt-8 mt-8 md:pt-16 md:mt-16 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
         <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-          © 2026 Crafted with <span className="text-red-500/80">♥</span> by <span className="text-slate-200">anonical</span>
+          © 2026 Crafted with <span className="text-red-500/80">♥</span> by <span className="text-slate-200">anonical22</span>
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-6">
